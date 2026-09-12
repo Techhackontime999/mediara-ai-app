@@ -1,13 +1,89 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from security.crypto import decrypt_text, encrypt_text
 from security.fields import EncryptedTextField
 
 User = get_user_model()
+
+
+class LlmProviderRoutingTests(TestCase):
+    """Proof that any OpenAI-compatible base URL works, not just Gemini."""
+
+    def test_openai_compatible_base_url_routing(self):
+        with override_settings(
+            AI_PROVIDER="openai",
+            AI_BASE_URL="http://localhost:11434/v1",  # e.g. Ollama / LM Studio
+            AI_API_KEY="",
+            AI_MODEL="llama3.1",
+            GEMINI_API_KEY="",
+        ), patch("ai.llm.requests.post") as post:
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = {"choices": [{"message": {"content": '{"ok": true}'}}]}
+
+            from ai.llm import call_llm, llm_config, is_llm_enabled
+
+            self.assertTrue(is_llm_enabled())
+            self.assertEqual(llm_config()["provider"], "openai")
+
+            text = call_llm("hello")
+            self.assertEqual(text, '{"ok": true}')
+
+            url = post.call_args.args[0]
+            body = post.call_args.kwargs["json"]
+            headers = post.call_args.kwargs["headers"]
+            self.assertEqual(url, "http://localhost:11434/v1/chat/completions")
+            self.assertEqual(body["model"], "llama3.1")
+            self.assertNotIn("Authorization", headers)  # no key configured
+
+    def test_openai_compatible_uses_bearer_key(self):
+        with override_settings(
+            AI_PROVIDER="auto",
+            AI_BASE_URL="https://api.groq.com/openai/v1",
+            AI_API_KEY="groq-secret",
+            AI_MODEL="llama-3.1-8b-instant",
+            GEMINI_API_KEY="",
+        ), patch("ai.llm.requests.post") as post:
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = {"choices": [{"message": {"content": "hi"}}]}
+
+            from ai.llm import call_llm
+
+            call_llm("ping")
+            headers = post.call_args.kwargs["headers"]
+            self.assertEqual(headers["Authorization"], "Bearer groq-secret")
+
+    def test_gemini_native_routing_preserved(self):
+        with override_settings(
+            AI_PROVIDER="auto",
+            AI_BASE_URL="",
+            AI_API_KEY="",
+            AI_MODEL="",
+            GEMINI_API_KEY="legacy-key",
+            GEMINI_MODEL="gemini-2.5-flash",
+        ), patch("ai.llm.requests.post") as post:
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = {
+                "candidates": [{"content": {"parts": [{"text": '["a"]'}]}}]
+            }
+
+            from ai.llm import llm_config
+            from ai.llm import call_llm
+
+            self.assertEqual(llm_config()["provider"], "gemini")
+            self.assertEqual(call_llm("ping"), '["a"]')
+            self.assertIn(":generateContent", post.call_args.args[0])
+            self.assertEqual(post.call_args.kwargs["params"]["key"], "legacy-key")
+
+    def test_unconfigured_disables_llm(self):
+        with override_settings(AI_PROVIDER="auto", AI_BASE_URL="", AI_API_KEY="", GEMINI_API_KEY="", AI_MODEL=""):
+            from ai.llm import is_llm_enabled, llm_config
+            self.assertFalse(is_llm_enabled())
+            self.assertEqual(llm_config()["provider"], "none")
 
 
 class EncryptionAtRestTests(TestCase):

@@ -201,7 +201,19 @@ else:
 # ---------------------------------------------------------------------------
 # Mediara AI-specific settings
 # ---------------------------------------------------------------------------
-# Gemini API key used ONLY on the server. The native Android client never sees it.
+# LLM provider abstraction -------------------------------------------------
+# Pick any OpenAI-compatible endpoint (OpenAI, Groq, Mistral, OpenRouter,
+# local Ollama/LM Studio/vLLM…) or keep native Gemini. Only the server holds
+# the key; the native Android client never sees it.
+#   AI_PROVIDER = "auto" | "gemini" | "openai"       (auto detects from base url)
+#   AI_BASE_URL = e.g. https://api.openai.com/v1 , http://localhost:11434/v1
+#   AI_API_KEY  = provider key (omit for local Ollama/LM Studio)
+#   AI_MODEL    = model id, e.g. gpt-4o-mini, llama3.1, gemini-2.5-flash
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "auto")
+AI_BASE_URL = os.environ.get("AI_BASE_URL", "")
+AI_API_KEY = os.environ.get("AI_API_KEY", "")
+AI_MODEL = os.environ.get("AI_MODEL", "")
+# Legacy Gemini variables — still honoured (equivalent to AI_PROVIDER=gemini).
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 # When true (default in dev), Gemini failures fall back to the deterministic

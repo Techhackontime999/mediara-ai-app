@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Provider-agnostic LLM client**: the backend can now use any OpenAI-compatible
+  endpoint via `AI_BASE_URL` (OpenAI, Groq, Mistral, OpenRouter, DeepSeek, local
+  Ollama/LM Studio/vLLM, Hugging Face) with `AI_API_KEY` + `AI_MODEL`, or native
+  Gemini. `AI_PROVIDER=auto` detects the routing from the base URL; the legacy
+  `GEMINI_API_KEY`/`GEMINI_MODEL` variables are still honoured. When nothing is
+  configured, the deterministic engine is used as before.
+- Tests for LLM provider routing (OpenAI-compatible body/headers, bearer auth,
+  Gemini native payload, disabled state).
+
 ## [1.0.0] - 2026-09-13
 
 ### Added

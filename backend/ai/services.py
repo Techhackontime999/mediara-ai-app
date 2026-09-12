@@ -1,17 +1,16 @@
 """Mediara AI mediation engine.
 
-Every function tries the LLM first (Gemini with server-side API key) and falls
-back to a deterministic, high-quality built-in engine so the full product flow
-always works, even offline or without a key.
+Every function tries the LLM first (whichever provider is configured — Gemini,
+or any OpenAI-compatible endpoint set via AI_BASE_URL) and falls back to a
+deterministic, high-quality built-in engine so the full product flow always
+works, even offline or without a key.
 """
 
 import logging
 
-from django.conf import settings
-
 from . import prompts
 from .grounding import ground_proposals
-from .llm import LLMUnavailableError, call_gemini, gemini_json
+from .llm import LLMUnavailableError, call_llm, is_llm_enabled, llm_json
 from .safety import evaluate_content
 
 logger = logging.getLogger("mediara.ai")
@@ -27,7 +26,7 @@ def private_session_reply(mediation, participant, history, latest_message):
     if safety.is_high_risk:
         return high_risk_reply(safety), "SAFETY_ALERT"
 
-    if _llm_enabled():
+    if is_llm_enabled():
         try:
             history_str = "\n".join(
                 f"{m.sender}: {m.content}" for m in history[-6:]
@@ -41,7 +40,7 @@ def private_session_reply(mediation, participant, history, latest_message):
                 history=history_str,
                 message=latest_message,
             )
-            text = call_gemini(prompt, temperature=0.6)
+            text = call_llm(prompt, temperature=0.6)
             if text:
                 return text, detect_category(latest_message)
         except LLMUnavailableError as exc:
@@ -127,7 +126,7 @@ def extract_perspective(mediation, participant, messages, existing=None):
     full_text = "\n".join(user_messages)
     fallback = build_fallback_perspective(mediation, participant, user_messages)
 
-    if full_text.strip() and _llm_enabled():
+    if full_text.strip() and is_llm_enabled():
         try:
             prompt = prompts.PERSPECTIVE_EXTRACTION.format(
                 title=mediation.title,
@@ -135,7 +134,7 @@ def extract_perspective(mediation, participant, messages, existing=None):
                 participant_role=participant.role,
                 messages=full_text,
             )
-            data = gemini_json(prompt, temperature=0.3)
+            data = llm_json(prompt, temperature=0.3)
             cleaned = _clean_expected(data)
             return {
                 "goals": cleaned.get("goals") or fallback["goals"],
@@ -220,7 +219,7 @@ def generate_conflict_analysis(mediation, perspectives):
     """Return a normalized conflict-analysis dict synthesizing perspectives."""
     fallback = build_fallback_analysis(mediation, perspectives)
 
-    if perspectives and _llm_enabled():
+    if perspectives and is_llm_enabled():
         try:
             summary = "\n---\n".join(
                 (
@@ -239,7 +238,7 @@ def generate_conflict_analysis(mediation, perspectives):
                 description=mediation.description,
                 perspectives=summary,
             )
-            data = gemini_json(prompt, temperature=0.3)
+            data = llm_json(prompt, temperature=0.3)
             return {
                 "common_goals": _as_list(data.get("common_goals") or data.get("commonGoals")),
                 "conflicting_goals": _as_list(data.get("conflicting_goals") or data.get("conflictingGoals")),
@@ -323,7 +322,7 @@ def build_fallback_analysis(mediation, perspectives):
 def generate_proposals(mediation, perspectives, analysis):
     """Return a list of exactly 3 proposal dicts."""
     fallback = build_fallback_proposals(mediation, perspectives, analysis)
-    if not _llm_enabled():
+    if not is_llm_enabled():
         return fallback
 
     try:
@@ -338,7 +337,7 @@ def generate_proposals(mediation, perspectives, analysis):
             participant_a=ref[0],
             participant_b=ref[1],
         )
-        data = gemini_json(prompt, temperature=0.5)
+        data = llm_json(prompt, temperature=0.5)
         if isinstance(data, dict):
             data = data.get("proposals") or data.get("resolutions") or []
         if not isinstance(data, list) or len(data) < 3:
@@ -520,7 +519,7 @@ def refine_proposal(original, feedback_summary, iteration):
         "expected_impact": "Higher mutual buy-in because both sides' sticking points were integrated.",
         "why_it_works": f"Directly bridges the sticking points identified in iteration {iteration - 1}.",
     }
-    if not _llm_enabled():
+    if not is_llm_enabled():
         return fallback
 
     try:
@@ -531,7 +530,7 @@ def refine_proposal(original, feedback_summary, iteration):
             tradeoffs=", ".join(original.get("tradeoffs", [])),
             feedback=feedback_summary,
         )
-        data = gemini_json(prompt, temperature=0.4)
+        data = llm_json(prompt, temperature=0.4)
         refined = {
             "title": data.get("title") or fallback["title"],
             "description": data.get("description") or fallback["description"],
@@ -546,9 +545,3 @@ def refine_proposal(original, feedback_summary, iteration):
     except LLMUnavailableError as exc:
         logger.debug("LLM unavailable for refinement: %s", exc)
         return fallback
-
-
-# ---------------------------------------------------------------------------
-
-def _llm_enabled() -> bool:
-    return bool((getattr(settings, "GEMINI_API_KEY", "") or "").strip())

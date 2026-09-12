@@ -48,6 +48,9 @@ follow-up), plus a native Android client.
 - **Grounded AI**: every proposal benefit traces back to the participant statements
   that justify it (`grounded_in`), with a deterministic conversational **balance and
   dominance detector** so no one party steers the outcome.
+- **Any LLM provider**: OpenAI-compatible `AI_BASE_URL` (OpenAI, Groq, Mistral,
+  OpenRouter, local Ollama/LM Studio/vLLM, Hugging Face…) or native Gemini — plus a
+  deterministic fallback engine so the flow always works offline.
 - **Privacy-first**:
   - Private messages encrypted **at rest** (Fernet) and never logged.
   - De-identified analysis payloads; per-mediation audit events **masked** for
@@ -103,13 +106,43 @@ curl http://127.0.0.1:8000/api/docs/        # interactive OpenAPI docs (Swagger)
 All endpoints live under `/api/` and require a JWT (`Authorization: Bearer <access>`
 from `/api/auth/login/`) except `register` and `login`.
 
+### Bring your own model (any OpenAI-compatible API)
+
+Point `AI_BASE_URL` at any service exposing OpenAI-spec `chat/completions` —
+no Gemini key required:
+
+```bash
+# Local Ollama (no key needed)
+export AI_BASE_URL="http://localhost:11434/v1"
+export AI_MODEL="llama3.1"
+
+# Groq
+export AI_BASE_URL="https://api.groq.com/openai/v1"
+export AI_API_KEY="gsk_..."
+export AI_MODEL="llama-3.1-8b-instant"
+
+# OpenRouter
+export AI_BASE_URL="https://openrouter.ai/api/v1"
+export AI_API_KEY="sk-or-..."
+export AI_MODEL="meta-llama/llama-3.1-8b-instruct"
+
+# OpenAI
+export AI_BASE_URL="https://api.openai.com/v1"
+export AI_API_KEY="sk-..."
+export AI_MODEL="gpt-4o-mini"
+```
+
+Native Gemini still works as before (`GEMINI_API_KEY`), and everything degrades
+to the deterministic engine when no provider is configured or reachable.
+
 ## Run tests
 
 ```bash
 cd backend
 python manage.py check
-python manage.py test                 # 18 tests: full mediation flow, safety, crypto,
-                                      # audit, notifications, grounding, balance
+python manage.py test                 # 22 tests: full mediation flow, safety, crypto,
+                                      # audit, notifications, grounding, balance,
+                                      # LLM provider routing
 ```
 
 ## Run with Docker
@@ -253,7 +286,11 @@ All settings are driven by environment variables — see
 | `DJANGO_DEBUG` | `True` | Disable in prod |
 | `DJANGO_ALLOWED_HOSTS` | `*` | Restrict in prod |
 | `DB_POSTGRES` | `False` | Use PostgreSQL when `True` |
-| `GEMINI_API_KEY` | empty | LLM proposals (server-side only); empty → deterministic engine |
+| `AI_PROVIDER` | `auto` | `auto` \| `gemini` \| `openai` |
+| `AI_BASE_URL` | empty | Any OpenAI-compatible base URL (e.g. Ollama `http://localhost:11434/v1`) |
+| `AI_API_KEY` | empty | Provider key (omit for local Ollama/LM Studio) |
+| `AI_MODEL` | empty | Model id, e.g. `gpt-4o-mini`, `llama3.1`, `gemini-2.5-flash` |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | empty / `gemini-2.5-flash` | Legacy Gemini (equivalent to `AI_PROVIDER=gemini`) |
 | `ENCRYPTION_KEY` | auto file | Fernet key for at-rest encryption |
 | `JWT_ACCESS_MINUTES` / `JWT_REFRESH_DAYS` | `120` / `30` | Token lifetimes |
 | `THROTTLE_AUTH` | `10/minute` | Login/register rate limit |
@@ -329,7 +366,8 @@ Minimum for real user data (non-negotiable):
 - **v1.3** — Web portal (reuses the existing DRF API + OpenAPI schema).
 - **v1.4** — Celery-based scheduled reminders + aggregated outcomes analytics
   (de-identified, opt-in).
-- **v1.5** — Multiple LLM providers (OpenAI/Claude) behind the existing abstraction.
+- **v1.5** — Anthropic-native protocol adapter behind the existing provider
+  abstraction (OpenAI-compatible + Gemini already supported).
 
 *Deferred by design*: raw WebSocket fan-out requires Redis (scaffolded, in-memory in
 dev); SMTP/Gemini/MFA production provisioning is operator-owned; the Android client
