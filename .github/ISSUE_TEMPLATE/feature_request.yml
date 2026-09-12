@@ -1,0 +1,33 @@
+---
+name: Feature request
+about: Suggest an idea for Mediara AI
+title: "[Feature] "
+labels: enhancement
+assignees: ""
+---
+
+## Problem statement
+
+Describe the problem you are trying to solve, not just the feature name.
+Who is affected and when does it show up?
+
+## Proposed solution
+
+Describe what you'd like to see added and how it should behave.
+
+## Alternative approaches
+
+What else did you consider?
+
+## Impact
+
+- **Component**: Backend / Android / Docs / Ops
+- **Effort**: Low / Medium / High (optional estimate)
+- **Would you implement it?** yes/no/maybe
+
+## Checklist
+
+- [ ] I have searched existing issues and PRs for duplicates.
+- [ ] I have described the problem, not only the feature.
+- [ ] I understand the privacy constraints of this platform (no raw caucus text
+      in logs or audit trails).
