@@ -1,0 +1,48 @@
+from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+
+class AuthFlowTests(APITestCase):
+    def setUp(self):
+        self.register_url = "/api/auth/register/"
+        self.login_url = "/api/auth/login/"
+
+    def test_register_returns_jwt_and_user(self):
+        resp = self.client.post(
+            self.register_url,
+            {"email": "alex@example.com", "name": "Alex Morgan", "password": "Secret123"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        data = resp.json()
+        self.assertIn("access", data)
+        self.assertIn("refresh", data)
+        self.assertEqual(data["user"]["email"], "alex@example.com")
+        self.assertEqual(data["user"]["name"], "Alex Morgan")
+        self.assertTrue(get_user_model().objects.filter(email="alex@example.com").exists())
+
+    def test_register_rejects_duplicate_email(self):
+        self.client.post(self.register_url, {"email": "a@b.com", "name": "A", "password": "Secret123"}, format="json")
+        resp = self.client.post(self.register_url, {"email": "a@b.com", "name": "B", "password": "secret456"}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_login_success_and_failure(self):
+        self.client.post(self.register_url, {"email": "a@b.com", "name": "A B", "password": "Secret123"}, format="json")
+        ok = self.client.post(self.login_url, {"email": "a@b.com", "password": "Secret123"}, format="json")
+        self.assertEqual(ok.status_code, 200)
+        self.assertIn("access", ok.json())
+        bad = self.client.post(self.login_url, {"email": "a@b.com", "password": "wrong"}, format="json")
+        self.assertEqual(bad.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_me_requires_auth(self):
+        resp = self.client.get("/api/auth/me/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.post(self.register_url, {"email": "a@b.com", "name": "A B", "password": "Secret123"}, format="json")
+        login = self.client.post(self.login_url, {"email": "a@b.com", "password": "Secret123"}, format="json")
+        token = login.json()["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200)
+        self.assertEqual(me.json()["email"], "a@b.com")

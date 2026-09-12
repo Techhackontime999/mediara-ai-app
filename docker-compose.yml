@@ -1,0 +1,34 @@
+services:
+  api:
+    build: .
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py send_follow_up_reminders &&
+             daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    environment:
+      DJANGO_DEBUG: "false"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DB_POSTGRES: "false"
+      PUBLIC_API_BASE_URL: "http://localhost:8000"
+      ENCRYPTION_KEY: "${ENCRYPTION_KEY:-}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      JWT_ACCESS_MINUTES: "${JWT_ACCESS_MINUTES:-120}"
+      JWT_REFRESH_DAYS: "${JWT_REFRESH_DAYS:-30}"
+      SENTRY_DSN: "${SENTRY_DSN:-}"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./backend:/app
+
+  # Optional Redis-backed channel layer; enable for production WebSockets.
+  # Uncomment CHANNELS_REDIS=true in api environment when this service is on.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"

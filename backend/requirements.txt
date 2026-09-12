@@ -1,0 +1,12 @@
+Django>=6.0,<7.0
+djangorestframework>=3.16
+djangorestframework-simplejwt>=5.5
+django-cors-headers>=4.4
+channels>=4.2
+channels-redis>=4.2
+daphne>=4.1
+psycopg[binary]>=3.2
+Pillow>=11.0
+reportlab>=4.2
+python-dotenv>=1.1
+requests>=2.32
