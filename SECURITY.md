@@ -59,7 +59,8 @@ Operational hardening required before handling real user data:
 - [ ] Set `ENCRYPTION_KEY` to a Fernet key and **store a backup** — losing this
       key makes previously encrypted private messages unrecoverable.
 - [ ] Set `DJANGO_DEBUG=False` and a restricted `DJANGO_ALLOWED_HOSTS`.
-- [ ] Run PostgreSQL (not the SQLite default) and apply backups.
+- [ ] Run PostgreSQL (not the SQLite default) and apply backups — daily
+      `scripts/backup-db.sh` (cron) plus an off-site copy.
 - [ ] Use Redis-backed Channels (`CHANNELS_REDIS=True`) for multi-worker WebSockets.
 - [ ] Swap `EMAIL_BACKEND` from console to SMTP for real verification emails.
 - [ ] Set `SENTRY_DSN` and monitor 5xx + auth failures.

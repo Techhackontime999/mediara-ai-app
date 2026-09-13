@@ -17,6 +17,8 @@
 local.properties
 .env
 debug.keystore
+*.jks
+backups/
 
 # Python / backend
 __pycache__/

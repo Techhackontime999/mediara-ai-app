@@ -1,29 +1,27 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
-  alias(libs.plugins.google.services)
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.mediara.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.mediara.resvlo"
+    applicationId = "com.mediara.app"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
 
-    // Base URL of the Mediara backend. Defaults to the Android Studio emulator
-    // loopback (10.0.2.2); override with the API_BASE_URL environment variable.
-    // Set PUBLIC_API_BASE_URL in .env to push a device-specific reachable URL.
-    val apiBaseUrl = System.getenv("API_BASE_URL") ?: "http://10.0.2.2:8000/"
+    // Base URL of the Mediara backend. Default is the production HTTPS placeholder;
+    // override for local dev with the API_BASE_URL environment variable, e.g.
+    //   export API_BASE_URL="http://10.0.2.2:8000/"   # emulator -> host backend
+    val apiBaseUrl = System.getenv("API_BASE_URL") ?: "https://api.mediara.ai/"
     buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -31,11 +29,18 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      // Load local.properties (gitignored) then fall back to environment variables.
+      val props = Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+      }
+      val keystorePath = System.getenv("KEYSTORE_PATH")
+          ?: props.getProperty("keystore.path")
+          ?: "${rootDir}/my-upload-key.jks"
+      storeFile = rootProject.file(keystorePath)
+      storePassword = System.getenv("STORE_PASSWORD") ?: props.getProperty("keystore.storePassword")
+      keyAlias = props.getProperty("keystore.keyAlias") ?: "upload"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: props.getProperty("keystore.keyPassword")
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -48,7 +53,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
@@ -70,21 +76,8 @@ android {
   }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
-}
-
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
-
-// Some unused dependencies are commented out below instead of being removed.
-// This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
-  implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
   // implementation(libs.androidx.camera.camera2)
@@ -108,18 +101,6 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
-
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
-  // implementation(libs.firebase.auth)
-  // implementation(libs.androidx.credentials)
-  // implementation(libs.androidx.credentials.play.services)
-  // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

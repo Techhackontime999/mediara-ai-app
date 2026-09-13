@@ -161,17 +161,19 @@ the production topology from [SECURITY.md](SECURITY.md). Set `ENCRYPTION_KEY` in
 
 The app points at the backend via `BuildConfig.API_BASE_URL`.
 
-- Default: `http://10.0.2.2:8000/` (emulator → host loopback).
-- Override before building, e.g. for a physical device:
+- Default for release builds: `https://api.mediara.ai/` (placeholder — set the real
+  production URL before shipping).
+- Local dev (emulator → host loopback) override before building:
 
 ```bash
-export API_BASE_URL="http://192.168.1.20:8000/"
+export API_BASE_URL="http://10.0.2.2:8000/"
 ./gradlew installDebug
 ```
 
-The app permits cleartext HTTP for local dev (see `AndroidManifest.xml`); use HTTPS
-in production. Build/run in Android Studio (project root) — the client is
-API-complete and mirrors every backend feature.
+Cleartext HTTP is allowed **only** for the emulator loopback hosts
+(`10.0.2.2`, `localhost`, `127.0.0.1`) via `res/xml/network_security_config.xml`;
+every other host requires HTTPS. Build/run in Android Studio (project root) — the
+client is API-complete and mirrors every backend feature.
 
 ## Two-account testing workflow
 

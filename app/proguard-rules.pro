@@ -1,21 +1,26 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# Mediara AI release rules (R8)
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Moshi (kotlin-codegen): keep generated adapters and JsonClass classes,
+# otherwise DTO de/serialization breaks under obfuscation.
+-keepattributes Signature, *Annotation*, InnerClasses, EnclosingMethod
+-keep @com.squareup.moshi.JsonClass class *
+-keepclassmembers class * {
+    @com.squareup.moshi.JsonClass *;
+}
+-keepclassmembers class * {
+    @com.squareup.moshi.FromJson <methods>;
+    @com.squareup.moshi.ToJson <methods>;
+}
+-keepnames class kotlin.jvm.internal.DefaultConstructorMarker
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Room ships its own consumer rules; keep entities + DAO implementations reachable.
+-keep class com.mediara.app.data.local.Entities { *; }
+-keep class com.mediara.app.data.local.MediationDao { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# OkHttp / Retrofit keep their own consumer rules; silence reflection noise.
+-dontwarn okhttp3.internal.**
+-dontwarn org.codehaus.mojo.animal_sniffer.**
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve stack-trace source info for crash reports.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
