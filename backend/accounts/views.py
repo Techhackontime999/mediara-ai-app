@@ -1,5 +1,7 @@
-from datetime import datetime, timezone
+from contextlib import suppress
+from datetime import UTC, datetime
 
+from audit.models import AuditLog
 from django.contrib.auth import authenticate
 from django.core.mail import send_mail
 from rest_framework import status
@@ -11,13 +13,11 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from audit.models import AuditLog
 from .models import User
 from .security import generate_totp_secret, generate_verification_code, totp_uri, verify_email_code, verify_totp
 from .serializers import (
     AuthResponseSerializer,
     EmailVerifyRequestSerializer,
-    ExportDataSerializer,
     LoginRequestSerializer,
     MfaEnableRequestSerializer,
     MfaVerifyRequestSerializer,
@@ -37,8 +37,8 @@ class _LoginScopedThrottle(ScopedRateThrottle):
 def _tokens_for(user: User, mfa_verified: bool = False) -> dict:
     refresh = RefreshToken.for_user(user)
     if user.is_mfa_enabled:
-        refresh["mfa"] = True if mfa_verified else False
-        refresh.access_token["mfa"] = True if mfa_verified else False
+        refresh["mfa"] = bool(mfa_verified)
+        refresh.access_token["mfa"] = bool(mfa_verified)
     return {
         "access": str(refresh.access_token),
         "refresh": str(refresh),
@@ -225,10 +225,8 @@ class LogoutView(APIView):
         refresh = request.data.get("refresh")
         if not refresh:
             return Response({"detail": "Refresh token required."}, status=status.HTTP_400_BAD_REQUEST)
-        try:
+        with suppress(Exception):
             RefreshToken(refresh).blacklist()
-        except Exception:
-            pass
         AuditLog.record(actor=request.user if request.user.is_authenticated else None,
                         action="auth.logout", entity_type="user",
                         entity_id=getattr(request.user, "pk", ""), request=request)
@@ -248,9 +246,9 @@ class DataExportView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        from agreements.models import FollowUpReport
         from conversations.models import Message
         from resolutions.models import Vote
-        from agreements.models import FollowUpReport
 
         user = request.user
         mediations = []
@@ -281,14 +279,14 @@ class DataExportView(APIView):
             "votes": [tuple_to_dict(v, ("mediation_id", "resolution_id", "decision", "feedback", "created_at")) for v in votes],
             "followUps": [tuple_to_dict(f, ("mediation_id", "sentiment", "comments", "created_at")) for f in follow_ups],
             "audit": [{"action": a, "at": t.isoformat()} for a, t in audit],
-            "exportedAt": datetime.now(timezone.utc).isoformat(),
+            "exportedAt": datetime.now(UTC).isoformat(),
         }
         AuditLog.record(actor=user, action="privacy.data_export", entity_type="user", entity_id=user.pk, request=request)
         return Response(payload)
 
 
 def tuple_to_dict(values, keys):
-    return dict(zip(keys, values))
+    return dict(zip(keys, values, strict=True))
 
 
 class DataPurgeView(APIView):
@@ -302,10 +300,10 @@ class DataPurgeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        from conversations.models import Message
-        from mediation.models import MediationStatus, Participant, Mediation
-        from resolutions.models import Vote
         from agreements.models import FollowUpReport
+        from conversations.models import Message
+        from mediation.models import Mediation, MediationStatus, Participant
+        from resolutions.models import Vote
 
         user = request.user
         AuditLog.record(actor=user, action="privacy.data_purge", entity_type="user", entity_id=user.pk, request=request)
@@ -327,7 +325,7 @@ class DataPurgeView(APIView):
         user.email = f"deleted-{user.uuid}@erased.mediara.ai"
         user.is_active = False
         user.data_erased = True
-        user.deleted_at = datetime.now(timezone.utc)
+        user.deleted_at = datetime.now(UTC)
         user.is_mfa_enabled = False
         user.mfa_secret = ""
         user.save(update_fields=["name", "email", "is_active", "data_erased", "deleted_at", "is_mfa_enabled", "mfa_secret"])

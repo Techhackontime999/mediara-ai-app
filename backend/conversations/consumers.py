@@ -33,7 +33,6 @@ class ConversationConsumer(AsyncWebsocketConsumer):
             return
 
         conversation_id = self.scope["url_route"]["kwargs"].get("conversation_id")
-        mediation_id = self.scope["url_route"]["kwargs"].get("mediation_id")
 
         conversation = await self._get_conversation(conversation_id, user)
         if conversation is None:
@@ -80,8 +79,9 @@ class ConversationConsumer(AsyncWebsocketConsumer):
 
     @staticmethod
     async def _get_conversation(conversation_id, user):
-        from .models import Conversation
         from asgiref.sync import sync_to_async
+
+        from .models import Conversation
 
         def fetch():
             return (

@@ -7,7 +7,6 @@ BASE_DIR/entropy.key so local dev still works and survives restarts. In
 production this key must come from the environment / secret manager.
 """
 
-import base64
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -27,7 +26,7 @@ def resolve_encryption_key(configured: str, base_dir: Path) -> bytes:
             Fernet(configured.encode("utf-8"))
             return configured.encode("utf-8")
         except Exception:
-            raise ValueError("ENCRYPTION_KEY must be a base64-encoded Fernet key.")
+            raise ValueError("ENCRYPTION_KEY must be a base64-encoded Fernet key.") from None
     key_file = base_dir / _KEY_FILE_NAME
     if key_file.exists():
         raw = key_file.read_bytes().strip()
@@ -42,7 +41,7 @@ def resolve_encryption_key(configured: str, base_dir: Path) -> bytes:
 
 
 def make_fernet(settings_module) -> Fernet:
-    return Fernet(resolve_encryption_key(getattr(settings_module, "ENCRYPTION_KEY", ""), Path(getattr(settings_module, "BASE_DIR") or ".")))
+    return Fernet(resolve_encryption_key(getattr(settings_module, "ENCRYPTION_KEY", ""), Path(settings_module.BASE_DIR or ".")))
 
 
 def _fernet():

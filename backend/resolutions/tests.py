@@ -1,11 +1,9 @@
+from conversations.services import get_or_create_conversation
 from django.contrib.auth import get_user_model
 from django.test import override_settings
+from mediation.models import Mediation, Participant
 from rest_framework import status
 from rest_framework.test import APITestCase
-
-from conversations.services import get_or_create_conversation
-from mediation.models import Mediation, Participant
-from resolutions.models import Resolution, Vote
 
 User = get_user_model()
 

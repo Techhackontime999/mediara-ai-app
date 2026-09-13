@@ -1,6 +1,5 @@
 """Custom model field storing values encrypted at rest (Fernet)."""
 
-from django.conf import settings
 from django.db import models
 
 from .crypto import encrypt_text

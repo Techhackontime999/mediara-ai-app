@@ -5,6 +5,7 @@ import logging
 from ai import services as ai_services
 from conversations.models import Message
 from mediation.models import Mediation, MediationStatus, Participant
+
 from .models import ConflictAnalysis, Perspective, Resolution, Vote
 
 logger = logging.getLogger("mediara.resolutions")
@@ -150,10 +151,9 @@ def cast_vote(resolution: Resolution, participant: Participant, decision: str, f
         return resolution
 
     decisions = list(Vote.objects.filter(resolution=resolution).values_list("decision", flat=True))
-    if Vote.Decision.REQUEST_CHANGES in decisions or Vote.Decision.REJECT in decisions:
-        if mediation.status == MediationStatus.PROPOSALS_READY:
-            mediation.status = MediationStatus.NEGOTIATING
-            mediation.save(update_fields=["status"])
+    if (Vote.Decision.REQUEST_CHANGES in decisions or Vote.Decision.REJECT in decisions) and mediation.status == MediationStatus.PROPOSALS_READY:
+        mediation.status = MediationStatus.NEGOTIATING
+        mediation.save(update_fields=["status"])
     return resolution
 
 

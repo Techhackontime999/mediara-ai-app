@@ -1,5 +1,4 @@
 from django.db import models
-
 from mediation.models import Mediation, Participant
 from security.fields import EncryptedTextField
 

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Mediation, MediationStatus, Participant
+from .models import Mediation, Participant
 
 User = get_user_model()
 

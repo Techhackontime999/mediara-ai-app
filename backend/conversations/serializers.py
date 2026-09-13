@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from .models import Conversation, Message
-
 
 class MessageSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Perspective, ConflictAnalysis, Resolution, Vote
+from .models import ConflictAnalysis, Perspective, Resolution, Vote
 
 
 class VoteInline(admin.TabularInline):

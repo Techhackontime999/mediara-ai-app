@@ -2,6 +2,7 @@
 
 from ai import services as ai_services
 from mediation.models import ParticipantStatus
+
 from .models import Conversation, Message, SenderType
 
 
@@ -69,10 +70,9 @@ def complete_private_session(conversation: Conversation) -> None:
 
     mediation = conversation.mediation
     required = mediation.participants.exclude(status="INVITED")
-    if required.exists() and required.exclude(status=ParticipantStatus.SESSION_COMPLETED).count() == 0:
-        if mediation.status in ("CREATED", "INVITED"):
-            mediation.status = "IN_PROGRESS"
-            mediation.save(update_fields=["status"])
+    if required.exists() and required.exclude(status=ParticipantStatus.SESSION_COMPLETED).count() == 0 and mediation.status in ("CREATED", "INVITED"):
+        mediation.status = "IN_PROGRESS"
+        mediation.save(update_fields=["status"])
 
 
 def _to_dict(message: Message) -> dict:

@@ -1,10 +1,7 @@
-from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-from django.utils import timezone
-
 from security.crypto import decrypt_text, encrypt_text
 from security.fields import EncryptedTextField
 
@@ -25,7 +22,7 @@ class LlmProviderRoutingTests(TestCase):
             post.return_value.status_code = 200
             post.return_value.json.return_value = {"choices": [{"message": {"content": '{"ok": true}'}}]}
 
-            from ai.llm import call_llm, llm_config, is_llm_enabled
+            from ai.llm import call_llm, is_llm_enabled, llm_config
 
             self.assertTrue(is_llm_enabled())
             self.assertEqual(llm_config()["provider"], "openai")
@@ -71,8 +68,7 @@ class LlmProviderRoutingTests(TestCase):
                 "candidates": [{"content": {"parts": [{"text": '["a"]'}]}}]
             }
 
-            from ai.llm import llm_config
-            from ai.llm import call_llm
+            from ai.llm import call_llm, llm_config
 
             self.assertEqual(llm_config()["provider"], "gemini")
             self.assertEqual(call_llm("ping"), '["a"]')
@@ -103,7 +99,7 @@ class EncryptionAtRestTests(TestCase):
 
 class ContentSafetyTests(TestCase):
     def test_totp_and_password_strength(self):
-        from accounts.security import generate_totp_secret, verify_totp, validate_password_strength
+        from accounts.security import generate_totp_secret, validate_password_strength, verify_totp
         from django.core.exceptions import ValidationError
 
         secret = generate_totp_secret()
@@ -169,9 +165,10 @@ class GroundingTests(TestCase):
         self.assertEqual(grounded[0]["grounded_in"][0]["participant"], "Alex")
 
     def test_balance_flags_dominance(self):
-        from ai.balance import assess_balance
         from conversations.models import Conversation, Message
         from mediation.models import Mediation
+
+        from ai.balance import assess_balance
 
         creator = User.objects.create_user(email="creator@example.com", name="Creator", password="Secret123")
         mediation = Mediation.objects.create(title="Balance", category="General", creator=creator)
@@ -183,7 +180,7 @@ class GroundingTests(TestCase):
 
         conv_l, _ = Conversation.objects.get_or_create(mediation=mediation, participant=pl)
         conv_q, _ = Conversation.objects.get_or_create(mediation=mediation, participant=pq)
-        for i in range(10):
+        for _i in range(10):
             Message.objects.create(conversation=conv_l, sender="USER", content="s")
         Message.objects.create(conversation=conv_q, sender="USER", content="s")
 

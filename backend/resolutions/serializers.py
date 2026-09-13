@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ConflictAnalysis, Perspective, Resolution, Vote
+from .models import Vote
 
 
 class PerspectiveSerializer(serializers.Serializer):

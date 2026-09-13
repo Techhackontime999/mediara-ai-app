@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Message, Conversation
+from .models import Conversation, Message
 
 
 class MessageInline(admin.TabularInline):

@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from .models import Mediation, Participant
-
 
 class ParticipantSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
@@ -177,7 +175,6 @@ class MediationStatusSerializer(serializers.Serializer):
     def get_nextStep(self, obj):
         status = obj.status
         joined = obj.participants.filter(status__in=["JOINED", "IN_SESSION", "SESSION_COMPLETED"]).count()
-        total = obj.participants.exclude(status="INVITED").count()
         if obj.safety_hold:
             return "Safety check active: supportive review in progress. Continue when ready."
         if status == "CREATED":

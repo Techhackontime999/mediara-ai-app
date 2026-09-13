@@ -1,21 +1,23 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from django.conf import settings
-from django.core.mail import send_mail
+from audit.models import AuditLog
 from django.http import HttpResponse
+from mediation.models import Mediation, MediationStatus, Participant
+from mediation.views import mediation_permission
+from notifications.services import create_notification
+from resolutions.models import Resolution
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from audit.models import AuditLog
-from mediation.models import Mediation, MediationStatus, Participant
-from mediation.views import mediation_permission
-from resolutions.models import Resolution
-from resolutions.services import required_participants
 from .models import Agreement, FollowUpReport
 from .pdf import agreement_sha256, build_agreement_pdf_bytes
-from .serializers import AgreementSerializer, FinalizeRequestSerializer, FollowUpReportSerializer, FollowUpRequestSerializer
-from notifications.services import create_notification
+from .serializers import (
+    AgreementSerializer,
+    FinalizeRequestSerializer,
+    FollowUpReportSerializer,
+    FollowUpRequestSerializer,
+)
 
 DEFAULT_ESCALATION = (
     "If friction or discrepancy re-emerges, parties agree to re-open Mediara AI "
@@ -36,7 +38,6 @@ def _get_mediation(request, pk):
 
 def _build_agreement(mediation: Mediation, resolution: Resolution) -> Agreement:
     participants = list(mediation.participants.exclude(status="INVITED").select_related("user"))
-    names = [p.user.name or p.user.email for p in participants]
 
     responsibilities = {}
     for p in participants:
@@ -61,7 +62,7 @@ def _build_agreement(mediation: Mediation, resolution: Resolution) -> Agreement:
         {"title": "Permanent Protocol Ratification", "dueDate": "Day 30", "assignedTo": "All Parties"},
     ]
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     signatures = {str(p.id): now.isoformat() for p in participants}
 
     agreement, _ = Agreement.objects.update_or_create(
@@ -113,7 +114,7 @@ class FinalizeMediationView(APIView):
 
         agreement = _build_agreement(mediation, resolution)
         mediation.status = MediationStatus.RESOLVED
-        mediation.resolved_at = datetime.now(timezone.utc)
+        mediation.resolved_at = datetime.now(UTC)
         mediation.save(update_fields=["status", "resolved_at"])
 
         for participant in mediation.participants.exclude(status="INVITED"):

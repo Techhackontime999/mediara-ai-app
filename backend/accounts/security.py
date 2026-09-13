@@ -7,7 +7,6 @@ required for production hardening.
 import base64
 import hashlib
 import hmac
-import os
 import secrets
 import struct
 import time
@@ -79,10 +78,7 @@ def verify_totp(secret_b32: str, code: str) -> bool:
         return False
     # Accept the current and the immediately-adjacent windows to tolerate clock skew.
     counter = int(time.time()) // TOTP_PERIOD_SECONDS
-    for offset in (-1, 0, 1):
-        if _totp_at(secret, counter + offset) == code_int:
-            return True
-    return False
+    return any(_totp_at(secret, counter + offset) == code_int for offset in (-1, 0, 1))
 
 
 def _totp_at(secret: bytes, counter: int) -> int:

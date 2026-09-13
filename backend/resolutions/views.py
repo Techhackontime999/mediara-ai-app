@@ -1,12 +1,17 @@
+from mediation.models import Participant
+from mediation.views import mediation_permission
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from mediation.models import Participant
-from mediation.views import mediation_permission
 from .models import ConflictAnalysis, Resolution, Vote
-from .serializers import ConflictAnalysisSerializer, RefineRequestSerializer, ResolutionSerializer, VoteRequestSerializer
-from .services import all_approved, cast_vote, refine_resolution, run_analysis, run_generate_resolutions
+from .serializers import (
+    ConflictAnalysisSerializer,
+    RefineRequestSerializer,
+    ResolutionSerializer,
+    VoteRequestSerializer,
+)
+from .services import all_approved, cast_vote, refine_resolution, run_generate_resolutions
 
 
 def _get_mediation(request, pk):
@@ -111,7 +116,6 @@ class ResolutionVoteView(APIView):
 
         # Determine if this mediation is fully accepted so the client can proceed.
         approved = all_approved(resolution)
-        is_active = approved
         for res in Resolution.objects.filter(mediation=resolution.mediation):
             res.is_active = approved and res.id == resolution.id
             res.save(update_fields=["is_active"])
@@ -167,6 +171,6 @@ class NegotiationStatusView(APIView):
             return Response({"detail": "Mediation not found or forbidden."}, status=status.HTTP_404_NOT_FOUND)
         resolutions = Resolution.objects.filter(mediation=mediation, is_active=True).prefetch_related("votes").order_by("proposal_number")
         data = [ResolutionSerializer(r).data for r in resolutions]
-        for item, res in zip(data, resolutions):
+        for item, res in zip(data, resolutions, strict=True):
             item["approvedByAll"] = all_approved(res)
         return Response(data)

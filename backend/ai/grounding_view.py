@@ -40,7 +40,7 @@ class GroundingView(APIView):
             ],
             perspectives,
         )
-        for proposal, original in zip(grounded, proposals):
+        for proposal, original in zip(grounded, proposals, strict=True):
             proposal["id"] = original.id
             proposal["proposalNumber"] = original.proposal_number
             proposal["modelType"] = original.model_type

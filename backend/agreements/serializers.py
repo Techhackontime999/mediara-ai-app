@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Agreement, FollowUpReport
+from .models import FollowUpReport
 
 
 class AgreementSerializer(serializers.Serializer):

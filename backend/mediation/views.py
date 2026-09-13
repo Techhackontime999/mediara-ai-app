@@ -1,22 +1,22 @@
+from audit.models import AuditLog
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
+from notifications.services import create_notification
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from audit.models import AuditLog
-from notifications.services import create_notification
 from .models import Mediation, MediationStatus, Participant, ParticipantStatus
 from .serializers import (
     CreateMediationSerializer,
     InviteParticipantRequestSerializer,
     JoinMediationRequestSerializer,
     MediationDetailSerializer,
+    MediationStatusSerializer,
     MediationSummarySerializer,
     ParticipantSerializer,
-    MediationStatusSerializer,
 )
 
 User = get_user_model()
@@ -244,7 +244,6 @@ class MediationJoinView(APIView):
                 participant.role = data["role"] or participant.role
                 participant.save()
 
-        joined_count = mediation.participants.filter(status__in=[ParticipantStatus.JOINED, ParticipantStatus.IN_SESSION, ParticipantStatus.SESSION_COMPLETED]).count()
         if mediation.status in (MediationStatus.CREATED, MediationStatus.INVITED):
             mediation.status = MediationStatus.INVITED
             mediation.save(update_fields=["status"])

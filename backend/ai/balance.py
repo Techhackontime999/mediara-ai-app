@@ -5,9 +5,8 @@ rebalance before proposals drift toward the louder party. Runs entirely
 deterministically — no LLM dependency.
 """
 
-from django.db.models import Count
-
 from conversations.models import Message
+from django.db.models import Count
 from resolutions.models import Perspective
 
 

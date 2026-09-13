@@ -16,8 +16,6 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-
-from agreements.models import FollowUpReport
 from mediation.models import Mediation, MediationStatus
 
 from ...services import create_notification
@@ -62,4 +60,4 @@ class Command(BaseCommand):
                 reminded += 1
                 self.stdout.write(f"Reminded {participant.user.email} for mediation {mediation.invite_code}")
 
-        self.stdout.write(self.style.SUCCESS(f"Done. Reminders sent to %d participant(s)." % reminded))
+        self.stdout.write(self.style.SUCCESS(f"Done. Reminders sent to {reminded} participant(s)."))

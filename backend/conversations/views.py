@@ -1,10 +1,10 @@
+from mediation.models import Participant
+from mediation.serializers import ParticipantSerializer
+from mediation.views import mediation_permission
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from mediation.models import Participant
-from mediation.serializers import ParticipantSerializer
-from mediation.views import mediation_permission
 from .models import Conversation
 from .serializers import ConversationSerializer, SendMessageSerializer
 from .services import complete_private_session, get_or_create_conversation, send_private_message
