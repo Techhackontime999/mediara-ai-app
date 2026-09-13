@@ -148,11 +148,14 @@ python manage.py test                 # 22 tests: full mediation flow, safety, c
 ## Run with Docker
 
 ```bash
-docker compose up --build             # API on :8000, optional redis, healthcheck enabled
+cp backend/.env.example .env          # then set DJANGO_SECRET_KEY, DJANGO_ALLOWED_HOSTS, POSTGRES_PASSWORD
+docker compose up --build             # API on :8000, healthcheck enabled
 ```
 
-`docker-compose.yml` runs migrations first, then Daphne. WebSockets default to the
-in-memory layer; set `CHANNELS_REDIS=true` + `REDIS_URL` for multi-worker production.
+`docker-compose.yml` fails fast if required vars are missing, runs migrations first,
+then Daphne. It uses **PostgreSQL** (named volume) plus Redis-backed WebSockets —
+the production topology from [SECURITY.md](SECURITY.md). Set `ENCRYPTION_KEY` in
+`.env` so private-message encryption survives container recreation.
 
 ## Android client
 

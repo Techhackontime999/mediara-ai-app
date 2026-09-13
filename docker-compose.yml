@@ -7,16 +7,37 @@ services:
              daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     environment:
       DJANGO_DEBUG: "false"
-      DJANGO_ALLOWED_HOSTS: "*"
-      DB_POSTGRES: "false"
-      PUBLIC_API_BASE_URL: "http://localhost:8000"
+      DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in your .env}"
+      DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:?set DJANGO_ALLOWED_HOSTS in your .env}"
+      DB_POSTGRES: "true"
+      POSTGRES_DB: "${POSTGRES_DB:-mediara}"
+      POSTGRES_USER: "${POSTGRES_USER:-mediara}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in your .env}"
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      CHANNELS_REDIS: "true"
+      REDIS_URL: "redis://redis:6379/0"
+      PUBLIC_API_BASE_URL: "${PUBLIC_API_BASE_URL:-http://localhost:8000}"
       ENCRYPTION_KEY: "${ENCRYPTION_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+      AI_API_KEY: "${AI_API_KEY:-}"
+      AI_MODEL: "${AI_MODEL:-}"
+      EMAIL_HOST: "${EMAIL_HOST:-}"
+      EMAIL_PORT: "${EMAIL_PORT:-587}"
+      EMAIL_HOST_USER: "${EMAIL_HOST_USER:-}"
+      EMAIL_HOST_PASSWORD: "${EMAIL_HOST_PASSWORD:-}"
+      DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL:-Mediara AI <no-reply@mediara.ai>}"
       JWT_ACCESS_MINUTES: "${JWT_ACCESS_MINUTES:-120}"
       JWT_REFRESH_DAYS: "${JWT_REFRESH_DAYS:-30}"
       SENTRY_DSN: "${SENTRY_DSN:-}"
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
       interval: 10s
@@ -25,10 +46,26 @@ services:
     volumes:
       - ./backend:/app
 
-  # Optional Redis-backed channel layer; enable for production WebSockets.
-  # Uncomment CHANNELS_REDIS=true in api environment when this service is on.
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-mediara}"
+      POSTGRES_USER: "${POSTGRES_USER:-mediara}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in your .env}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mediara} -d ${POSTGRES_DB:-mediara}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     expose:
       - "6379"
+
+volumes:
+  postgres_data:
