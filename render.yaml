@@ -1,0 +1,69 @@
+# Render Blueprint — Mediara production stack (managed Postgres + Django ASGI).
+# Deploy: render.com  ->  New +  ->  "Blueprint"  ->  connect this GitHub repo
+#          ->  check the diff  ->  Apply  (or "Apply Changes" on later pushes).
+#
+# The web service is named "mediara-ai", which is what makes the public host
+# https://mediara-ai.onrender.com/ exist — the exact URL the Android app ships
+# with as its default API_BASE_URL. If that name is already taken on Render,
+# rename it below to something free (e.g. mediara-ai-app) and then the Android
+# default must be re-pointed to the new host before the app is rebuilt.
+
+databases:
+  - name: mediara-db
+    plan: free
+    databaseName: mediara
+    user: mediara
+
+services:
+  - type: web
+    name: mediara-ai
+    runtime: docker
+    plan: free
+    runtimeDirectory: ""
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/
+    envVars:
+      # --- Django / HTTPS (hardening already handled by settings.py) ---
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "mediara-ai.onrender.com,localhost,127.0.0.1"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: "https://mediara-ai.onrender.com"
+      - key: ADMIN_URL
+        value: "mediara-admin"
+      # --- Database: managed Postgres wired straight into the 12-factor URL ---
+      - key: DB_ENGINE
+        value: "postgres"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mediara-db
+          property: connectionString
+      # --- Superuser bootstrap (Dockerfile runs `ensure_superuser` at boot) ---
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: "admin@mediara.ai"
+      - key: DJANGO_SUPERUSER_NAME
+        value: "Mediara Admin"
+      - key: DJANGO_SUPERUSER_PASSWORD
+        generateValue: true
+      # --- Dev-only / optional extras (leave blank on free tier) ---
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: MONGO_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI_BASE_URL
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        sync: false
+      - key: AI_FALLBACK_ENABLED
+        value: "True"
+      - key: SENTRY_DSN
+        sync: false
+      - key: DEBUGGER_ENABLED
+        value: "false"
