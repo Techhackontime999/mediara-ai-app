@@ -24,10 +24,10 @@ android {
     versionCode = 1
     versionName = mediaraVersionName
 
-    // Base URL of the Mediara backend. Default is the production HTTPS placeholder;
-    // override for local dev with the API_BASE_URL environment variable, e.g.
+    // Base URL of the Mediara backend. Default points at the Render web service
+    // (see render.yaml); override for local dev with the API_BASE_URL env var, e.g.
     //   export API_BASE_URL="http://10.0.2.2:8000/"   # emulator -> host backend
-    val apiBaseUrl = System.getenv("API_BASE_URL") ?: "https://api.mediara.ai/"
+    val apiBaseUrl = System.getenv("API_BASE_URL") ?: "https://mediara-ai.onrender.com/"
     buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
