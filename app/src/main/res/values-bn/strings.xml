@@ -103,4 +103,7 @@
     <string name="onboarding_get_started">শুরু করুন</string>
     <string name="onboarding_invite_code">আমার কাছে আমন্ত্রণ কোড আছে</string>
     <string name="onboarding_already_account">ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন করুন</string>
+
+    <string name="preview_hero_title">শান্তিপূর্ণভাবে দ্বন্দ্বের সমাধান করুন।</string>
+    <string name="preview_hero_desc">এটি আপনার নির্বাচিত অ্যাকসেন্ট রঙ, ফন্ট শৈলী এবং টেক্সট আকারের একটি প্রিভিউ।</string>
 </resources>
