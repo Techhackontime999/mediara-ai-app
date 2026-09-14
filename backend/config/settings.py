@@ -11,6 +11,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -152,32 +153,151 @@ ASGI_APPLICATION = "config.asgi.application"
 WSGI_APPLICATION = "config.wsgi.application"
 
 # ---------------------------------------------------------------------------
-# Database
+# Database — engine-agnostic, switched purely by environment variables.
 # ---------------------------------------------------------------------------
-if env_bool("DB_POSTGRES", False) or os.environ.get("POSTGRES_HOST"):
-    _pg_options = {}
-    sslmode = os.environ.get("POSTGRES_SSLMODE", "").strip()
-    if sslmode:
-        _pg_options["sslmode"] = sslmode
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("POSTGRES_DB", "mediara"),
+# SQLite is the zero-config local default. For production choose PostgreSQL
+# (covers Supabase, Neon, RDS, Cloud SQL) or MySQL/MariaDB.
+#
+#   DB_ENGINE    = "sqlite" (default) | "postgres" | "mysql"
+#   DATABASE_URL = 12-factor connection string (wins over the *_HOST/*_VARS):
+#                      postgres://user:pass@host:5432/dbname
+#                      postgresql://user:pass@host:5432/dbname
+#                      mysql://user:pass@host:3306/dbname
+#                      sqlite:///db.sqlite3          (relative) or absolute path
+#
+# Backward compatible: DB_POSTGRES=True or POSTGRES_HOST set => PostgreSQL.
+# MongoDB is *not* an ORM database in Django — see the MONGO_* settings below
+# (optional auxiliary store) and docs/DATABASE.md.
+
+def _url_split(raw_url):
+    from urllib.parse import parse_qs, unquote, urlsplit
+    parsed = urlsplit(raw_url)
+    scheme = parsed.scheme.split("+")[0].lower()
+    if scheme == "sqlite":
+        # sqlite:///custom.db    -> relative path (anchored to backend/)
+        # sqlite:////abs/one.db  -> absolute path
+        path = unquote(parsed.path)
+        name = path if path.startswith("//") else path.lstrip("/")
+    else:
+        name = unquote(parsed.path).lstrip("/")
+    return {
+        "scheme": scheme,
+        "name": name,
+        "user": unquote(parsed.username) if parsed.username else "",
+        "password": unquote(parsed.password) if parsed.password else "",
+        "host": parsed.hostname or "",
+        "port": parsed.port,
+        "query": {k: v[-1] for k, v in parse_qs(parsed.query).items()},
+    }
+
+
+def _resolve_database() -> dict:
+    raw_url = os.environ.get("DATABASE_URL", "").strip()
+    engine = os.environ.get("DB_ENGINE", "").strip().lower()
+
+    if raw_url:
+        parts = _url_split(raw_url)
+        engine = {
+            "postgres": "postgres",
+            "postgresql": "postgres",
+            "mysql": "mysql",
+            "mariadb": "mysql",
+            "sqlite": "sqlite",
+        }.get(parts["scheme"], "sqlite")
+
+    # Backward-compatible auto-detection (used only when nothing explicit set).
+    if not engine and (env_bool("DB_POSTGRES", False) or os.environ.get("POSTGRES_HOST")):
+        engine = "postgres"
+
+    if engine == "postgres":
+        options = {}
+        # URL query params (e.g. ?sslmode=require) apply first; the dedicated
+        # POSTGRES_SSLMODE variable overrides them.
+        if raw_url:
+            options.update({k: v for k, v in parts["query"].items() if k in {"sslmode", "application_name"}})
+        env_sslmode = os.environ.get("POSTGRES_SSLMODE", "").strip()
+        if env_sslmode:
+            options["sslmode"] = env_sslmode
+        if raw_url:
+            return {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": parts["name"] or "mediara",
+                "USER": parts["user"] or os.environ.get("POSTGRES_USER", "mediara"),
+                "PASSWORD": parts["password"] or os.environ.get("POSTGRES_PASSWORD", ""),
+                "HOST": parts["host"] or os.environ.get("POSTGRES_HOST", "localhost"),
+                "PORT": parts["port"] or int(os.environ.get("POSTGRES_PORT", "5432")),
+                "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", "0")),
+                "OPTIONS": options,
+            }
+        return {
             "USER": os.environ.get("POSTGRES_USER", "mediara"),
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "mediara"),
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
             "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", "0")),
-            "OPTIONS": _pg_options,
+            "OPTIONS": options,
         }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+
+    if engine == "mysql":
+        try:
+            import pymysql  # noqa: F401
+            pymysql.install_as_MySQLdb()
+        except ImportError as exc:  # pragma: no cover - dependency issue
+            raise ImproperlyConfigured(
+                "MySQL selected but 'pymysql' is not installed. Run: pip install -r requirements.txt"
+            ) from exc
+        if raw_url:
+            return {
+                "ENGINE": "django.db.backends.mysql",
+                "NAME": parts["name"] or "mediara",
+                "USER": parts["user"] or os.environ.get("MYSQL_USER", "mediara"),
+                "PASSWORD": parts["password"] or os.environ.get("MYSQL_PASSWORD", ""),
+                "HOST": parts["host"] or os.environ.get("MYSQL_HOST", "localhost"),
+                "PORT": parts["port"] or int(os.environ.get("MYSQL_PORT", "3306")),
+                "CONN_MAX_AGE": int(os.environ.get("MYSQL_CONN_MAX_AGE", "0")),
+                "OPTIONS": {
+                    "charset": "utf8mb4",
+                    "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+                },
+            }
+        return {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.environ.get("MYSQL_DB", "mediara"),
+            "USER": os.environ.get("MYSQL_USER", "mediara"),
+            "PASSWORD": os.environ.get("MYSQL_PASSWORD", "mediara"),
+            "HOST": os.environ.get("MYSQL_HOST", "localhost"),
+            "PORT": int(os.environ.get("MYSQL_PORT", "3306")),
+            "CONN_MAX_AGE": int(os.environ.get("MYSQL_CONN_MAX_AGE", "0")),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
         }
+
+    if raw_url and engine == "sqlite":
+        name_path = Path(parts["name"])
+        if not name_path.is_absolute():
+            name_path = BASE_DIR / name_path
+        return {"ENGINE": "django.db.backends.sqlite3", "NAME": name_path}
+
+    # Default: local SQLite, zero configuration.
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
+
+
+DATABASES = {"default": _resolve_database()}
+
+# ---------------------------------------------------------------------------
+# MongoDB — optional auxiliary store (NOT the Django ORM database)
+# ---------------------------------------------------------------------------
+# Core relational data always lives in the DB above (Postgres recommended for
+# production). Setting MONGO_URL additionally enables a MongoDB connection for
+# unstructured/analytics data via config.mongo.get_mongo_client(). Docs:
+# docs/DATABASE.md.
+MONGO_URL = os.environ.get("MONGO_URL", "")
+MONGO_DB = os.environ.get("MONGO_DB", "mediara")
 
 AUTH_USER_MODEL = "accounts.User"
 

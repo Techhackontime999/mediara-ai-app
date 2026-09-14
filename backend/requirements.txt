@@ -5,7 +5,13 @@ django-cors-headers==4.9.0
 channels==4.3.2
 channels-redis==4.3.0
 daphne==4.2.3
+# PostgreSQL driver (production default; also covers Supabase/Neon/RDS).
 psycopg[binary]==3.3.5
+# MySQL / MariaDB driver (DNS in pure Python when using DB_ENGINE=mysql).
+PyMySQL==1.1.1
+# MongoDB (optional auxiliary store; set MONGO_URL to enable).
+pymongo==4.10.1
+dnspython==2.7.0
 Pillow==12.3.0
 reportlab==5.0.1
 python-dotenv==1.2.3

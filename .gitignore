@@ -33,3 +33,5 @@ schema.json
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# local run output (PowerShell Start-Process redirects)
+mediara_run.*

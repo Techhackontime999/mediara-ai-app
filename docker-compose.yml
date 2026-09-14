@@ -15,6 +15,8 @@ services:
       DJANGO_SUPERUSER_EMAIL: "${DJANGO_SUPERUSER_EMAIL:-}"
       DJANGO_SUPERUSER_NAME: "${DJANGO_SUPERUSER_NAME:-}"
       DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-}"
+      DB_ENGINE: "${DB_ENGINE:-postgres}"
+      DATABASE_URL: "${DATABASE_URL:-}"
       DB_POSTGRES: "true"
       POSTGRES_DB: "${POSTGRES_DB:-mediara}"
       POSTGRES_USER: "${POSTGRES_USER:-mediara}"
@@ -22,6 +24,14 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
       POSTGRES_SSLMODE: "${POSTGRES_SSLMODE:-}"
+      POSTGRES_CONN_MAX_AGE: "${POSTGRES_CONN_MAX_AGE:-60}"
+      MYSQL_DB: "${MYSQL_DB:-mediara}"
+      MYSQL_USER: "${MYSQL_USER:-mediara}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-mediara}"
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MONGO_URL: "${MONGO_URL:-}"
+      MONGO_DB: "${MONGO_DB:-mediara}"
       CHANNELS_REDIS: "true"
       REDIS_URL: "redis://redis:6379/0"
       PUBLIC_API_BASE_URL: "${PUBLIC_API_BASE_URL:-http://localhost:8000}"
@@ -78,5 +88,43 @@ services:
     expose:
       - "6379"
 
+  # Optional MySQL/MariaDB alternative to the Postgres `db` service above.
+  # Enable the whole MySQL topology with:
+  #   DB_ENGINE=mysql docker compose --profile mysql up --build
+  mysql:
+    image: mysql:8
+    profiles: ["mysql"]
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: "${MYSQL_DB:-mediara}"
+      MYSQL_USER: "${MYSQL_USER:-mediara}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:-mediara}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-change-me-root}"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional MongoDB for the auxiliary store (analytics / unstructured data).
+  # Enable with:  docker compose --profile mongo up -d
+  mongo:
+    image: mongo:7
+    profiles: ["mongo"]
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: "${MONGO_DB:-mediara}"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
+  mysql_data:
+  mongo_data:
