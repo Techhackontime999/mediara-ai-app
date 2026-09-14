@@ -8,6 +8,15 @@ class AuthFlowTests(APITestCase):
         self.register_url = "/api/auth/register/"
         self.login_url = "/api/auth/login/"
 
+    def register_and_verify(self, **kwargs):
+        resp = self.client.post(self.register_url, kwargs, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        # Mark the address verified directly (the production code path sends a
+        # code by email / verifies via /api/auth/verify-email/).
+        user = get_user_model().objects.get(email=kwargs["email"])
+        user.email_verified = True
+        user.save(update_fields=["email_verified"])
+
     def test_register_returns_jwt_and_user(self):
         resp = self.client.post(
             self.register_url,
@@ -28,7 +37,7 @@ class AuthFlowTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_login_success_and_failure(self):
-        self.client.post(self.register_url, {"email": "a@b.com", "name": "A B", "password": "Secret123"}, format="json")
+        self.register_and_verify(email="a@b.com", name="A B", password="Secret123")
         ok = self.client.post(self.login_url, {"email": "a@b.com", "password": "Secret123"}, format="json")
         self.assertEqual(ok.status_code, 200)
         self.assertIn("access", ok.json())
@@ -39,7 +48,7 @@ class AuthFlowTests(APITestCase):
         resp = self.client.get("/api/auth/me/")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        self.client.post(self.register_url, {"email": "a@b.com", "name": "A B", "password": "Secret123"}, format="json")
+        self.register_and_verify(email="a@b.com", name="A B", password="Secret123")
         login = self.client.post(self.login_url, {"email": "a@b.com", "password": "Secret123"}, format="json")
         token = login.json()["access"]
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")

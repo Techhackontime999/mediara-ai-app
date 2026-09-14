@@ -3,18 +3,25 @@ services:
     build: .
     command: >
       sh -c "python manage.py migrate &&
+             python manage.py ensure_superuser &&
              python manage.py send_follow_up_reminders &&
              daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     environment:
       DJANGO_DEBUG: "false"
       DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY in your .env}"
       DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:?set DJANGO_ALLOWED_HOSTS in your .env}"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:-}"
+      ADMIN_URL: "${ADMIN_URL:-secret-admin}"
+      DJANGO_SUPERUSER_EMAIL: "${DJANGO_SUPERUSER_EMAIL:-}"
+      DJANGO_SUPERUSER_NAME: "${DJANGO_SUPERUSER_NAME:-}"
+      DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-}"
       DB_POSTGRES: "true"
       POSTGRES_DB: "${POSTGRES_DB:-mediara}"
       POSTGRES_USER: "${POSTGRES_USER:-mediara}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in your .env}"
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
+      POSTGRES_SSLMODE: "${POSTGRES_SSLMODE:-}"
       CHANNELS_REDIS: "true"
       REDIS_URL: "redis://redis:6379/0"
       PUBLIC_API_BASE_URL: "${PUBLIC_API_BASE_URL:-http://localhost:8000}"
@@ -23,14 +30,18 @@ services:
       AI_BASE_URL: "${AI_BASE_URL:-}"
       AI_API_KEY: "${AI_API_KEY:-}"
       AI_MODEL: "${AI_MODEL:-}"
+      AI_FALLBACK_ENABLED: "${AI_FALLBACK_ENABLED:-True}"
       EMAIL_HOST: "${EMAIL_HOST:-}"
       EMAIL_PORT: "${EMAIL_PORT:-587}"
       EMAIL_HOST_USER: "${EMAIL_HOST_USER:-}"
       EMAIL_HOST_PASSWORD: "${EMAIL_HOST_PASSWORD:-}"
+      EMAIL_USE_TLS: "${EMAIL_USE_TLS:-True}"
       DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL:-Mediara AI <no-reply@mediara.ai>}"
       JWT_ACCESS_MINUTES: "${JWT_ACCESS_MINUTES:-120}"
       JWT_REFRESH_DAYS: "${JWT_REFRESH_DAYS:-30}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       SENTRY_DSN: "${SENTRY_DSN:-}"
+      SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-production}"
     ports:
       - "8000:8000"
     depends_on:

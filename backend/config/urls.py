@@ -1,5 +1,6 @@
 """Root URL configuration for the Mediara AI API."""
 
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -9,7 +10,7 @@ from .health import health
 
 urlpatterns = [
     path("health/", health, name="health"),
-    path("admin/", admin.site.urls),
+    path(f"{settings.ADMIN_URL}/", admin.site.urls),
     path("api/auth/", include("accounts.urls")),
     path("api/mediations/", include("mediation.urls")),
     path("api/conversations/", include("conversations.urls")),

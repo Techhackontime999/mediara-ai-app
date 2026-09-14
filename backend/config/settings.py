@@ -39,6 +39,58 @@ DEBUG = env_bool("DJANGO_DEBUG", True)
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "*")
 
+# Path for the admin backend. Change ADMIN_URL in production to hide /admin/.
+ADMIN_URL = os.environ.get("ADMIN_URL", "admin").strip("/")
+
+# Origins that may POST cookies to this origin (reverse proxies, web admin).
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+
+# Security hardening. Sensible strict defaults kick in automatically when DEBUG
+# is off; each can be overridden per environment. A reverse proxy that handles
+# TLS should set DJANGO_SECURE_SSL_REDIRECT=True and forward "X-Forwarded-Proto".
+if not DEBUG:
+    SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", True)
+    CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", True)
+    SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", False)
+    SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    X_FRAME_OPTIONS = os.environ.get("DJANGO_X_FRAME_OPTIONS", "DENY")
+else:
+    # Local dev: TLS is off, keep cookies usable over HTTP on localhost.
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {"format": "{asctime} {levelname} {name} {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "ai": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "audit": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+    },
+}
+
 # ---------------------------------------------------------------------------
 # Applications
 # ---------------------------------------------------------------------------
@@ -103,6 +155,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # ---------------------------------------------------------------------------
 if env_bool("DB_POSTGRES", False) or os.environ.get("POSTGRES_HOST"):
+    _pg_options = {}
+    sslmode = os.environ.get("POSTGRES_SSLMODE", "").strip()
+    if sslmode:
+        _pg_options["sslmode"] = sslmode
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -111,6 +167,8 @@ if env_bool("DB_POSTGRES", False) or os.environ.get("POSTGRES_HOST"):
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "mediara"),
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", "0")),
+            "OPTIONS": _pg_options,
         }
     }
 else:
@@ -138,13 +196,13 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = os.environ.get("STATIC_ROOT") or (BASE_DIR / "staticfiles")
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-MEDIA_ROOT = BASE_DIR / "media"
-MEDIA_URL = "/media/"
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT") or (BASE_DIR / "media")
+MEDIA_URL = os.environ.get("MEDIA_URL", "/media/")
 
 # ---------------------------------------------------------------------------
 # Django REST Framework + JWT
@@ -243,7 +301,11 @@ if os.environ.get("EMAIL_HOST"):
     EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
     EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
     EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+    EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Mediara AI <no-reply@mediara.ai>")
+
+# Reserved for operational notifications (daily digests, error mailouts).
+ADMIN_NOTIFY_EMAILS = env_list("ADMIN_NOTIFY_EMAILS", "")
 
 # ---------------------------------------------------------------------------
 # Encryption at rest (EntrustedMessage/Fernet)
@@ -267,6 +329,7 @@ SPECTACULAR_SETTINGS = {
 # Sentry (optional; enabled only when SENTRY_DSN is set)
 # ---------------------------------------------------------------------------
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+APP_ENV = os.environ.get("APP_ENV", "development" if DEBUG else "production")
 if SENTRY_DSN:
     import sentry_sdk
     from sentry_sdk.integrations.django import DjangoIntegration
@@ -275,5 +338,5 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration()],
         traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
-        environment=os.environ.get("SENTRY_ENVIRONMENT", "production" if not DEBUG else "development"),
+        environment=os.environ.get("SENTRY_ENVIRONMENT", APP_ENV),
     )

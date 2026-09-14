@@ -27,6 +27,7 @@ follow-up), plus a native Android client.
 - [Run tests](#run-tests)
 - [Run with Docker](#run-with-docker)
 - [Android client](#android-client)
+- [Docs](#docs)
 - [Two-account testing workflow](#two-account-testing-workflow)
 - [API reference](#api-reference)
 - [Configuration](#configuration)
@@ -92,6 +93,7 @@ cd backend
 python -m venv .venv
 # Windows:  .venv\Scripts\activate     macOS/Linux:  source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env              # Windows: Copy-Item .env.example .env (defaults work as-is)
 python manage.py migrate
 python manage.py runserver        # → http://127.0.0.1:8000/
 ```
@@ -102,6 +104,22 @@ Verify it is healthy:
 curl http://127.0.0.1:8000/health/          # {"status": "ok", "database": "ok"}
 curl http://127.0.0.1:8000/api/docs/        # interactive OpenAPI docs (Swagger)
 ```
+
+### Bootstrap a superuser from environment variables
+
+No interactive prompts needed — set three variables and run once (Docker does
+this automatically on first boot):
+
+```bash
+export DJANGO_SUPERUSER_EMAIL=admin@mediara.ai
+export DJANGO_SUPERUSER_NAME=Admin
+export DJANGO_SUPERUSER_PASSWORD=change-me
+python manage.py ensure_superuser
+```
+
+Idempotent: creates the account when missing, no-ops when the variables are
+unset, `--force` re-syncs the password. Remove `DJANGO_SUPERUSER_PASSWORD`
+from the environment after the first successful boot.
 
 All endpoints live under `/api/` and require a JWT (`Authorization: Bearer <access>`
 from `/api/auth/login/`) except `register` and `login`.
@@ -152,10 +170,12 @@ cp backend/.env.example .env          # then set DJANGO_SECRET_KEY, DJANGO_ALLOW
 docker compose up --build             # API on :8000, healthcheck enabled
 ```
 
-`docker-compose.yml` fails fast if required vars are missing, runs migrations first,
-then Daphne. It uses **PostgreSQL** (named volume) plus Redis-backed WebSockets —
-the production topology from [SECURITY.md](SECURITY.md). Set `ENCRYPTION_KEY` in
-`.env` so private-message encryption survives container recreation.
+`docker-compose.yml` fails fast if required vars are missing, runs migrations
+first, then Daphne. It uses **PostgreSQL** (named volume) plus Redis-backed
+WebSockets — the production topology from [SECURITY.md](SECURITY.md). Set
+`ENCRYPTION_KEY` in `.env` so private-message encryption survives container
+recreation, and add `DJANGO_SUPERUSER_EMAIL` / `DJANGO_SUPERUSER_NAME` /
+`DJANGO_SUPERUSER_PASSWORD` to auto-create the first admin on boot.
 
 ## Android client
 
@@ -174,6 +194,21 @@ Cleartext HTTP is allowed **only** for the emulator loopback hosts
 (`10.0.2.2`, `localhost`, `127.0.0.1`) via `res/xml/network_security_config.xml`;
 every other host requires HTTPS. Build/run in Android Studio (project root) — the
 client is API-complete and mirrors every backend feature.
+
+## Docs
+
+The `docs/` folder holds the full operational manual:
+
+| Guide | Covers |
+| ----- | ------ |
+| [QUICKSTART.md](docs/QUICKSTART.md) | Local setup in 5 minutes (bare metal / Docker / emulator) |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) | Every environment variable, explained |
+| [ANDROID.md](docs/ANDROID.md) | Build, connect & release the Android client |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment (Docker, VPS, reverse proxy) |
+| [DATABASE.md](docs/DATABASE.md) | Migrations, PostgreSQL, backups, schema |
+| [AI.md](docs/AI.md) | LLM providers (OpenAI, Groq, Gemini, Ollama…) |
+| [TESTING.md](docs/TESTING.md) | Running & writing tests |
+| [MODIFYING.md](docs/MODIFYING.md) | Extending backend + Android client |
 
 ## Two-account testing workflow
 
@@ -278,25 +313,29 @@ Protection Protocol with crisis resources.
 
 ### Meta
 
-`/health/` · `/api/schema/` (OpenAPI JSON) · `/api/docs/` (Swagger UI) · `/admin/`
+`/health/` · `/api/schema/` (OpenAPI JSON) · `/api/docs/` (Swagger UI) · `/<ADMIN_URL>/` (Django admin)
 
 ## Configuration
 
 All settings are driven by environment variables — see
-[`backend/.env.example`](backend/.env.example). Key ones:
+[`backend/.env.example`](backend/.env.example) and the full
+[Configuration docs](docs/CONFIGURATION.md). Key ones:
 
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
 | `DJANGO_SECRET_KEY` | dev key | Django secret — set in prod |
 | `DJANGO_DEBUG` | `True` | Disable in prod |
 | `DJANGO_ALLOWED_HOSTS` | `*` | Restrict in prod |
+| `ADMIN_URL` | `admin` | Admin path — obfuscate in prod |
+| `DJANGO_SUPERUSER_EMAIL` / `NAME` / `PASSWORD` | empty | Auto-bootstrap the first admin (`ensure_superuser`) |
 | `DB_POSTGRES` | `False` | Use PostgreSQL when `True` |
 | `AI_PROVIDER` | `auto` | `auto` \| `gemini` \| `openai` |
 | `AI_BASE_URL` | empty | Any OpenAI-compatible base URL (e.g. Ollama `http://localhost:11434/v1`) |
 | `AI_API_KEY` | empty | Provider key (omit for local Ollama/LM Studio) |
 | `AI_MODEL` | empty | Model id, e.g. `gpt-4o-mini`, `llama3.1`, `gemini-2.5-flash` |
+| `AI_FALLBACK_ENABLED` | `True` | Fall back to the deterministic engine when the LLM is unreachable |
 | `GEMINI_API_KEY` / `GEMINI_MODEL` | empty / `gemini-2.5-flash` | Legacy Gemini (equivalent to `AI_PROVIDER=gemini`) |
-| `ENCRYPTION_KEY` | auto file | Fernet key for at-rest encryption |
+| `ENCRYPTION_KEY` | auto file | Fernet key for at-rest encryption — **back it up** |
 | `JWT_ACCESS_MINUTES` / `JWT_REFRESH_DAYS` | `120` / `30` | Token lifetimes |
 | `THROTTLE_AUTH` | `10/minute` | Login/register rate limit |
 | `EMAIL_HOST`… | console | SMTP for verification emails (console in dev) |
@@ -320,7 +359,7 @@ All settings are driven by environment variables — see
 
 ```
 backend/
-  accounts         auth, email-verify, MFA, GDPR export/erase
+  accounts         auth, email-verify, MFA, GDPR export/erase, ensure_superuser
   mediation        cases, invite codes, participants, status dashboard
   conversations    private caucuses (encrypted at rest), WebSocket consumers
   ai               safety, grounding, balance, LLM fallback engine
@@ -330,6 +369,7 @@ backend/
   notifications    in-app notifications + reminder command
   security         Fernet crypto + EncryptedTextField
   config           settings, health probe, root URLs, schema/docs
+docs/              QUICKSTART · CONFIGURATION · ANDROID · DEPLOYMENT · etc.
 app/
   data/remote      DTOs, MediaraApiService, ApiClient, SessionManager
   data/repository  MediationRepository (single API facade)
@@ -354,10 +394,12 @@ Docker image is buildable from the repo root (`docker compose up --build`).
 
 ## Deployment to production
 
-See **[SECURITY.md](SECURITY.md)** for the full hardened deployment checklist.
-Minimum for real user data (non-negotiable):
+Full guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — plus the hardened
+checklist in **[SECURITY.md](SECURITY.md)**. Minimum for real user data
+(non-negotiable):
 
 - `DJANGO_DEBUG=False`, strong secret key, restricted hosts, HTTPS everywhere.
+- `ADMIN_URL` changed away from `/admin/`.
 - PostgreSQL instead of SQLite, with backups.
 - `ENCRYPTION_KEY` set **and backed up** (unrecoverable data otherwise).
 - Real SMTP for verification emails.
