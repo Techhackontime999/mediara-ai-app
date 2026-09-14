@@ -79,7 +79,9 @@ internal fun UserDto.toDomainUser(): User = User(
     name = name ?: "",
     email = email ?: "",
     avatarInitials = avatarInitials ?: (name?.take(2)?.uppercase() ?: ""),
-    createdAt = parseIso(date_joined) ?: System.currentTimeMillis()
+    createdAt = parseIso(date_joined) ?: System.currentTimeMillis(),
+    isStaff = isStaff ?: false,
+    emailVerified = emailVerified ?: false
 )
 
 internal fun ParticipantDto.toDomainParticipant(mediationId: String): Participant = Participant(

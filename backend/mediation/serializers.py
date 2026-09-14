@@ -55,32 +55,32 @@ class MediationDetailSerializer(MediationSummarySerializer):
 
     def get_analysis(self, obj):
         from resolutions.serializers import ConflictAnalysisSerializer
-        analysis = getattr(obj, "analysis", None)
+        analysis = getattr(obj, "_analysis", None)
         if analysis is None:
             return None
         return ConflictAnalysisSerializer(analysis).data
 
     def get_proposals(self, obj):
         from resolutions.serializers import ResolutionSerializer
-        proposals = getattr(obj, "proposals", None)
+        proposals = getattr(obj, "_proposals", None)
         if not proposals:
             return []
         return ResolutionSerializer(proposals, many=True).data
 
     def get_activeProposalId(self, obj):
-        active = getattr(obj, "active_resolution", None)
+        active = getattr(obj, "_active_resolution", None)
         return active.id if active else None
 
     def get_agreement(self, obj):
         from agreements.serializers import AgreementSerializer
-        agreement = getattr(obj, "agreement", None)
+        agreement = getattr(obj, "_agreement", None)
         if agreement is None:
             return None
         return AgreementSerializer(agreement).data
 
     def get_followUps(self, obj):
         from agreements.serializers import FollowUpReportSerializer
-        reports = getattr(obj, "followup_reports", None)
+        reports = getattr(obj, "_followup_reports", None)
         if not reports:
             return []
         return FollowUpReportSerializer(reports, many=True).data

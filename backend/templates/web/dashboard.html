@@ -1,0 +1,244 @@
+{% extends "web/base.html" %}
+{% block title %}Dashboard — Mediara AI{% endblock %}
+{% block page_name %}dashboard{% endblock %}
+{% block api_base %}/api/{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="container">
+    <a class="brand no-underline" href="/dashboard/">
+      <span class="brand-mark">M</span>
+      Mediara&nbsp;AI
+    </a>
+    <nav class="nav-actions">
+      <button class="btn btn-secondary btn-sm" id="joinBtn">Join by code</button>
+      <button class="btn btn-primary btn-sm" id="createBtn">New mediation</button>
+      <a class="avatar no-underline" id="avatarLink" href="/account/" title="Account">ME</a>
+    </nav>
+  </div>
+</header>
+
+<main class="section tight" id="main">
+  <div class="container">
+    <div class="row between wrap" style="margin-bottom:24px;">
+      <div>
+        <h1 style="font-size:26px;">Your mediation cases</h1>
+        <p class="muted small" style="margin:4px 0 0;" id="subtitle">Loading your sessions…</p>
+      </div>
+      <div class="row">
+        <a class="btn btn-secondary btn-sm" href="/account/">Account</a>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+
+    <div class="row wrap" style="gap:8px;margin-bottom:24px;" id="filterRow">
+      <button class="btn btn-sm btn-primary" data-filter="" type="button">All</button>
+      <button class="btn btn-sm btn-secondary" data-filter="active" type="button">Active</button>
+      <button class="btn btn-sm btn-secondary" data-filter="resolved" type="button">Resolved</button>
+    </div>
+
+    <div id="listState">
+      <div class="grid-cards">
+        <div class="card pad"><div class="skeleton" style="height:14px;width:60%;"></div><div style="height:10px;"></div><div class="skeleton" style="height:10px;width:85%;"></div></div>
+        <div class="card pad"><div class="skeleton" style="height:14px;width:45%;"></div><div style="height:10px;"></div><div class="skeleton" style="height:10px;width:75%;"></div></div>
+        <div class="card pad"><div class="skeleton" style="height:14px;width:55%;"></div><div style="height:10px;"></div><div class="skeleton" style="height:10px;width:90%;"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="text/template" id="mediCardTpl">
+  <a class="card clickable pad no-underline" href="/mediation/{id}" style="display:block;height:100%;">
+    <div class="row between">
+      <span class="badge badge-neutral">{category}</span>
+      {statusBadge}
+    </div>
+    <h3 style="margin:14px 0 6px;color:var(--ink);">{title}</h3>
+    <p class="small" style="margin:0 0 14px;color:var(--ink-soft);">{description}</p>
+    <div class="row between">
+      <span class="tiny mono" style="color:var(--ink-mute);">#{token}</span>
+      <span class="tiny muted">{participants}</span>
+    </div>
+  </a>
+</script>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const M = window.Mediara;
+  if (!M.requireAuth("/dashboard/")) return;
+
+  const user = M.storage.getUser();
+  if (user?.name) {
+    const link = document.getElementById("avatarLink");
+    link.textContent = user.name.slice(0, 2).toUpperCase();
+  }
+
+  let all = [];
+  let filter = "";
+
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    M.clearSession();
+    location.href = "/";
+  });
+
+  document.getElementById("filterRow").querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("filterRow").querySelectorAll("button").forEach((b) => {
+        b.className = "btn btn-sm " + (b === btn ? "btn-primary" : "btn-secondary");
+      });
+      filter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  const tpl = document.getElementById("mediCardTpl").innerHTML;
+  async function load() {
+    try {
+      all = await M.apiJson("mediations/");
+      render();
+      document.getElementById("subtitle").textContent =
+        user?.name ? "Welcome back, " + user.name + "." : "Your mediation sessions.";
+    } catch (err) {
+      document.getElementById("listState").innerHTML =
+        `<div class="alert alert-error">${M.escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function filtered() {
+    if (filter === "active") return all.filter((m) => !["RESOLVED", "CLOSED"].includes(m.status));
+    if (filter === "resolved") return all.filter((m) => ["RESOLVED", "CLOSED"].includes(m.status));
+    return all;
+  }
+
+  function render() {
+    const state = document.getElementById("listState");
+    const items = filtered();
+    if (!items.length) {
+      state.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">M</div>
+          <h3>No mediation cases yet</h3>
+          <p>Start your first case or join an existing session with an invite code.</p>
+          <button class="btn btn-primary" data-create>Start a mediation</button>
+        </div>`;
+      state.querySelector("[data-create]").addEventListener("click", openCreate);
+      return;
+    }
+    state.innerHTML = `<div class="grid-cards">` + items.map((m) =>
+      tpl
+        .replaceAll("{id}", m.id)
+        .replaceAll("{title}", M.escapeHtml(m.title))
+        .replaceAll("{category}", M.escapeHtml(m.category || "General"))
+        .replaceAll("{description}", M.escapeHtml((m.description || "No description provided.").slice(0, 120)))
+        .replaceAll("{token}", M.escapeHtml(m.inviteCode || "—"))
+        .replaceAll("{participants}", (m.participants?.length || 0) + " participants · created " + M.timeAgo(m.createdAt))
+        .replaceAll("{statusBadge}", M.statusBadge(m.status))
+    ).join("") + `</div>`;
+  }
+
+  /* ---------- create ---------- */
+
+  function openCreate() {
+    const form = document.createElement("form");
+    form.className = "stack";
+    form.innerHTML = `
+      <div class="form-error" data-err style="display:none;"></div>
+      <div class="field">
+        <label for="mTitle">Title</label>
+        <input id="mTitle" required minlength="3" maxlength="200" placeholder="What is being disputed?">
+      </div>
+      <div class="field">
+        <label for="mDesc">Description</label>
+        <textarea id="mDesc" placeholder="Brief context the mediator (AI) may read."></textarea>
+      </div>
+      <div class="field">
+        <label for="mCategory">Category</label>
+        <select id="mCategory">
+          <option>General</option>
+          <option>Business</option>
+          <option>Workplace</option>
+          <option>Family</option>
+          <option>Consumer</option>
+          <option>Government</option>
+          <option>Data &amp; Privacy</option>
+        </select>
+      </div>
+      <div class="row between">
+        <div style="width:100%;">
+          <button class="btn btn-primary btn-block" type="submit">Create mediation</button>
+        </div>
+      </div>`;
+    const err = form.querySelector("[data-err]");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.style.display = "none";
+      const btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "Creating…";
+      try {
+        const created = await M.apiJson("mediations/", {
+          method: "POST",
+          body: {
+            title: document.getElementById("mTitle").value.trim(),
+            description: document.getElementById("mDesc").value.trim(),
+            category: document.getElementById("mCategory").value,
+            participantNames: [],
+            participantEmails: [],
+          },
+        });
+        M.toast("Mediation created. Share invite code " + (created.inviteCode || "") + " with the other party.", "success");
+        location.href = "/mediation/" + created.id;
+      } catch (ex) {
+        err.style.display = "block";
+        err.textContent = ex.message;
+        btn.disabled = false;
+        btn.textContent = "Create mediation";
+      }
+    });
+    M.openModal({ title: "New mediation", body: form });
+  }
+
+  /* ---------- join ---------- */
+
+  function openJoin() {
+    const form = document.createElement("form");
+    form.className = "stack";
+    form.innerHTML = `
+      <div class="form-error" data-err style="display:none;"></div>
+      <div class="field">
+        <label for="joinCode">Invite code</label>
+        <input id="joinCode" required maxlength="12" class="mono" placeholder="e.g. S9S5LW" style="text-transform:uppercase;">
+        <p class="hint">Ask the initiating party for the invite code shown on their case.</p>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Join mediation</button>`;
+    const err = form.querySelector("[data-err]");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      err.style.display = "none";
+      const btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      btn.textContent = "Joining…";
+      try {
+        const joined = await M.apiJson("mediations/join/", {
+          method: "POST",
+          body: { inviteCode: document.getElementById("joinCode").value.trim().toUpperCase(), role: "Participant" },
+        });
+        M.toast("Joined: " + (joined.title || "mediation") + ".", "success");
+        location.href = "/mediation/" + joined.id;
+      } catch (ex) {
+        err.style.display = "block";
+        err.textContent = ex.message;
+        btn.disabled = false;
+        btn.textContent = "Join mediation";
+      }
+    });
+    M.openModal({ title: "Join a mediation", body: form });
+  }
+
+  document.getElementById("createBtn").addEventListener("click", openCreate);
+  document.getElementById("joinBtn").addEventListener("click", openJoin);
+
+  load();
+})();
+</script>
+{% endblock %}

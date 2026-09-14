@@ -1,0 +1,126 @@
+{% extends "web/base.html" %}
+{% block title %}Sign in — Mediara AI{% endblock %}
+{% block page_name %}login{% endblock %}
+{% block api_base %}/api/auth/{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <aside class="auth-brand">
+    <a class="brand no-underline" href="/" style="color:#fff;">
+      <span class="brand-mark">M</span>
+      Mediara&nbsp;AI
+    </a>
+    <div>
+      <p class="rule tiny" style="text-transform:uppercase;letter-spacing:0.14em;color:var(--accent-soft);font-weight:600;margin:0 0 12px;">Zero-disclosure by default</p>
+      <h1>Private caucus.<br>Honest synthesis.</h1>
+      <p class="lead" style="margin:16px 0 0;max-width:360px;">
+        Return to your mediation sessions. Everything stays secure and private.
+      </p>
+    </div>
+  </aside>
+  <main class="auth-form">
+    <div class="auth-panel">
+      <h2 style="margin-bottom:6px;">Welcome back</h2>
+      <p class="muted small" style="margin:0 0 28px;">Sign in to continue to your dashboard.</p>
+
+      <form id="loginForm" novalidate>
+        <div class="form-error" id="formError" style="display:none;"></div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+        </div>
+
+        <div class="field" id="passwordField">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </div>
+
+        <div class="field" id="codeField" style="display:none;">
+          <label for="code">Authentication code</label>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+          <p class="hint">Enter the 6-digit code from your authenticator app.</p>
+        </div>
+
+        <button class="btn btn-primary btn-lg btn-block" id="submitBtn" type="submit">
+          Sign in
+        </button>
+      </form>
+
+      <p class="small muted" style="margin:22px 0 0;text-align:center;">
+        New to Mediara? <a href="/register/">Create an account</a>
+      </p>
+    </div>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const M = window.Mediara;
+  const form = document.getElementById("loginForm");
+  const errBox = document.getElementById("formError");
+  const submitBtn = document.getElementById("submitBtn");
+  const codeField = document.getElementById("codeField");
+  const passwordField = document.getElementById("passwordField");
+
+  function showError(msg) {
+    errBox.style.display = "block";
+    errBox.textContent = msg;
+  }
+  function hideError() { errBox.style.display = "none"; }
+
+  let pending = null; // { userId, mfaRequired }
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hideError();
+
+    const hasCode = pending?.mfaRequired;
+    const payload = {
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value,
+    };
+    if (hasCode) payload.code = document.getElementById("code").value.trim();
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = hasCode ? "Verifying…" : "Signing in…";
+
+    try {
+      const data = await M.apiJson(pending ? "mfa/verify/" : "login/", {
+        method: "POST",
+        body: hasCode ? { userId: pending.userId, code: payload.code } : payload,
+      });
+
+      if (data.mfaRequired && !data.access) {
+        // MFA challenge stage -> ask for the code
+        pending = { userId: data.userId, mfaRequired: true };
+        codeField.style.display = "block";
+        passwordField.style.display = "none";
+        document.getElementById("code").focus();
+        submitBtn.textContent = "Verify code";
+        submitBtn.disabled = false;
+        return;
+      }
+
+      if (data.access) {
+        M.storage.setTokens({ access: data.access, refresh: data.refresh });
+        const user = data.user || data.userId
+          ? { name: data.user?.name || "User", email: data.user?.email || "", isStaff: data.user?.isStaff || false }
+          : { name: "User", email: "", isStaff: false };
+        M.storage.setUser(user);
+        const next = new URLSearchParams(location.search).get("next") || "/dashboard/";
+        location.href = next;
+        return;
+      }
+
+      showError(data.detail || "Unexpected response.");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Sign in";
+    } catch (err) {
+      showError(err.message);
+      submitBtn.disabled = false;
+      submitBtn.textContent = hasCode ? "Verify code" : "Sign in";
+    }
+  });
+})();
+</script>
+{% endblock %}

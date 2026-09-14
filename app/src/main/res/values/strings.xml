@@ -1,3 +1,121 @@
 <resources>
     <string name="app_name">Mediara AI</string>
+
+    <!-- Auth: Common -->
+    <string name="loading">Loading&#8230;</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_submit">Submit</string>
+    <string name="action_back">Back</string>
+    <string name="action_resend">Resend code</string>
+    <string name="action_ok">OK</string>
+
+    <!-- Auth: Field labels -->
+    <string name="field_email">Email address</string>
+    <string name="field_email_hint">you@example.com</string>
+    <string name="field_password">Password</string>
+    <string name="field_password_hint">Enter your password</string>
+    <string name="field_confirm_password">Confirm password</string>
+    <string name="field_full_name">Full name</string>
+    <string name="field_code">Verification code</string>
+    <string name="field_code_hint">Enter 6-digit code</string>
+    <string name="field_new_password">New password</string>
+
+    <!-- Auth: Errors -->
+    <string name="error_fill_all">Please fill in all fields.</string>
+    <string name="error_email_invalid">Please enter a valid email address.</string>
+    <string name="error_password_length">Password must be at least 8 characters.</string>
+    <string name="error_password_upper">Password must contain an uppercase letter.</string>
+    <string name="error_password_lower">Password must contain a lowercase letter.</string>
+    <string name="error_password_digit">Password must contain at least one digit.</string>
+    <string name="error_password_mismatch">Passwords do not match.</string>
+    <string name="error_network">Could not reach the server. Check your connection.</string>
+
+    <!-- Auth: Login -->
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Sign in to your confidential mediations</string>
+    <string name="login_sign_in">Sign In</string>
+    <string name="login_forgot_password">Forgot password?</string>
+    <string name="login_no_account">Don\'t have an account?</string>
+    <string name="login_sign_up">Sign Up</string>
+    <string name="login_verification_required">Please verify your email address first.</string>
+
+    <!-- Auth: Sign Up -->
+    <string name="signup_title">Create account</string>
+    <string name="signup_subtitle">Join Mediara AI conflict resolution</string>
+    <string name="signup_create">Create Account</string>
+    <string name="signup_have_account">Already have an account?</string>
+    <string name="signup_terms">By continuing you agree to our Terms &amp; Privacy Policy.</string>
+
+    <!-- Auth: Forgot Password -->
+    <string name="forgot_title">Reset your password</string>
+    <string name="forgot_subtitle">Enter the email address you signed up with and we will send you a 6-digit code.</string>
+    <string name="forgot_send_code">Send Reset Code</string>
+    <string name="forgot_code_sent">If that account exists, a reset code was sent to it.</string>
+    <string name="forgot_back_to_login">Back to Sign In</string>
+
+    <!-- Auth: Reset Password -->
+    <string name="reset_title">Set new password</string>
+    <string name="reset_subtitle">Enter the code sent to your email and choose a new password.</string>
+    <string name="reset_submit">Reset Password</string>
+    <string name="reset_success">Your password has been reset. Please sign in.</string>
+
+    <!-- Auth: Email Verification -->
+    <string name="verify_title">Verify your email</string>
+    <string name="verify_subtitle">A 6-digit verification code was sent to your email. Enter it below to activate your account.</string>
+    <string name="verify_submit">Verify Email</string>
+    <string name="verify_resend">Resend verification code</string>
+    <string name="verify_resend_success">A new code has been sent to your email (visible in the debug server console).</string>
+    <string name="verify_email_updated">Email verified. You may now sign in.</string>
+    <string name="verify_dev_code_sent">Dev code: %s</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_accent">Accent color</string>
+    <string name="settings_font">Font style</string>
+    <string name="settings_font_default">Default</string>
+    <string name="settings_font_serif">Serif</string>
+    <string name="settings_font_mono">Monospace</string>
+    <string name="settings_dark_mode">Dark mode</string>
+    <string name="settings_dark_system">Follow system</string>
+    <string name="settings_dark_light">Light</string>
+    <string name="settings_dark_dark">Dark</string>
+    <string name="settings_text_size">Text size</string>
+    <string name="settings_text_small">Compact</string>
+    <string name="settings_text_default">Default</string>
+    <string name="settings_text_large">Large</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_general">General</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version 1.0.0</string>
+    <string name="settings_privacy">Confidentiality &amp; Impartiality</string>
+    <string name="settings_privacy_desc">Mediara AI operates on zero-disclosure private transcripts. The AI mediator provides no legal or mental health counsel.</string>
+    <string name="settings_logout">Sign out</string>
+    <string name="settings_preview">Preview</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">Understand the people behind the conflict.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_hero_title">Peaceful, Intelligent\nConflict Resolution</string>
+    <string name="onboarding_hero_desc">Mediara AI conducts private 1-on-1 sessions with each participant, identifies common ground without exposing private messages, and synthesizes 3 practical, ratified resolution agreements.</string>
+    <string name="onboarding_pillar_private_title">Private &amp; Confidential</string>
+    <string name="onboarding_pillar_private_desc">Neither party sees raw transcripts; only joint insights are synthesized.</string>
+    <string name="onboarding_pillar_impartial_title">Strictly Impartial</string>
+    <string name="onboarding_pillar_impartial_desc">The AI never takes sides or blames; it bridges differences neutrally.</string>
+    <string name="onboarding_pillar_accord_title">Ratified Accords &amp; PDF</string>
+    <string name="onboarding_pillar_accord_desc">Generates actionable agreements, downloadable PDFs, and milestone follow-ups.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_invite_code">I Have an Invite Code</string>
+    <string name="onboarding_already_account">Already have an account? Sign In</string>
+
+    <!-- Settings: Preview section -->
+    <string name="preview_hero_title">Resolve conflicts peacefully.</string>
+    <string name="preview_hero_desc">This is a preview of your selected accent color, font style, and text size.</string>
 </resources>

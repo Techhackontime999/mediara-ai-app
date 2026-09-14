@@ -15,12 +15,19 @@ data class UserDto(
     val email: String? = null,
     val avatarInitials: String? = null,
     val date_joined: String? = null,
+    val isStaff: Boolean? = null,
+    val emailVerified: Boolean? = null,
 )
 
 data class AuthResponseDto(
     val access: String? = null,
     val refresh: String? = null,
     val user: UserDto? = null,
+    val mfaRequired: Boolean? = null,
+    val mfaSetupRequired: Boolean? = null,
+    val userId: Int? = null,
+    val emailVerificationRequired: Boolean? = null,
+    val email: String? = null,
 )
 
 data class RefreshResponseDto(
@@ -207,6 +214,30 @@ data class RefreshRequestDto(
     val refresh: String,
 )
 
+data class PasswordResetRequestDto(
+    val email: String,
+)
+
+data class PasswordResetConfirmRequestDto(
+    val email: String,
+    val code: String,
+    val password: String,
+)
+
+data class VerifyEmailRequestDto(
+    val email: String,
+    val code: String,
+)
+
+data class DevResendCodeRequestDto(
+    val email: String,
+)
+
+data class MessageDtoSimple(
+    val detail: String? = null,
+    val code: String? = null,
+)
+
 data class CreateMediationRequestDto(
     val title: String,
     val description: String,
@@ -251,6 +282,32 @@ data class FollowUpRequestDto(
     val comments: String = "",
     val reopen: Boolean = false,
     val participantId: Int? = null,
+)
+
+data class MfaSetupRequestDto(
+    val email: String,
+    val password: String,
+)
+
+data class MfaSetupResponseDto(
+    val secret: String? = null,
+    val otpauthUri: String? = null,
+    val userId: Int? = null,
+)
+
+data class MfaSetupCompleteRequestDto(
+    val email: String,
+    val password: String,
+    val code: String,
+)
+
+data class MfaVerifyRequestDto(
+    val userId: Int,
+    val code: String,
+)
+
+data class MfaEnableRequestDto(
+    val code: String,
 )
 
 class MediaraApiException(

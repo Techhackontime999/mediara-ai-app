@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "agreements",
     "audit",
     "notifications",
+    "web",
 ]
 
 MIDDLEWARE = [
@@ -82,7 +83,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -138,6 +139,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -161,6 +163,8 @@ REST_FRAMEWORK = {
         "anon": os.environ.get("THROTTLE_ANON", "30/minute"),
         "user": os.environ.get("THROTTLE_USER", "200/minute"),
         "auth": os.environ.get("THROTTLE_AUTH", "10/minute"),
+        "login": os.environ.get("THROTTLE_LOGIN", "5/minute"),
+        "mfa": os.environ.get("THROTTLE_MFA", "5/minute"),
     },
     "DEFAULT_RENDERER_CLASSES": (
         "rest_framework.renderers.JSONRenderer",

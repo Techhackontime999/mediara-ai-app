@@ -30,12 +30,16 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import retrofit2.HttpException
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
+import okhttp3.OkHttpClient
 import java.io.File
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * API-backed facade over the Mediara backend.
@@ -100,11 +104,20 @@ class MediationRepository(
         return user
     }
 
-    suspend fun login(email: String, password: String): User {
+    /** Outcome produced by the login endpoint. */
+    sealed interface LoginResult {
+        data class Success(val user: User) : LoginResult
+        data class EmailVerificationRequired(val email: String) : LoginResult
+    }
+
+    suspend fun login(email: String, password: String): LoginResult {
         val response = try {
             apiService.login(LoginRequestDto(email = email, password = password))
         } catch (e: Throwable) {
             throw e.toMediaraError(statusCode = null)
+        }
+        if (response.emailVerificationRequired == true) {
+            return LoginResult.EmailVerificationRequired(response.email ?: email)
         }
         val user = response.user?.toDomainUser()
             ?: throw MediaraApiException("Signed in but no profile was returned.")
@@ -114,7 +127,55 @@ class MediationRepository(
             user = user
         )
         refreshMediations()
-        return user
+        return LoginResult.Success(user)
+    }
+
+    /** Verify the 6-digit email verification code, then mark the local user verified. */
+    suspend fun verifyEmail(email: String, code: String) {
+        val emailNormalized = email.trim().lowercase()
+        try {
+            apiService.verifyEmail(VerifyEmailRequestDto(email = emailNormalized, code = code.trim()))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+        sessionManager.user.value?.copy(emailVerified = true)?.let {
+            sessionManager.setUser(it)
+        }
+    }
+
+    /** Re-send the email verification code (accessible via the dev endpoint in DEBUG). */
+    suspend fun resendVerificationCode(email: String): String? {
+        val emailNormalized = email.trim().lowercase()
+        val response = try {
+            apiService.devResendCode(DevResendCodeRequestDto(email = emailNormalized))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+        return if (response.code.isNullOrBlank()) null else response.code
+    }
+
+    /** Request a password-reset code. Always succeeds (address existence is hidden). */
+    suspend fun requestPasswordReset(email: String) {
+        try {
+            apiService.requestPasswordReset(PasswordResetRequestDto(email = email.trim()))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+    }
+
+    /** Validate the reset code and set a new password. */
+    suspend fun confirmPasswordReset(email: String, code: String, newPassword: String) {
+        try {
+            apiService.confirmPasswordReset(
+                PasswordResetConfirmRequestDto(
+                    email = email.trim(),
+                    code = code.trim(),
+                    password = newPassword
+                )
+            )
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
     }
 
     suspend fun logout() {
@@ -122,6 +183,110 @@ class MediationRepository(
         if (refresh.isNotBlank()) {
             runCatching { apiService.logout(RefreshRequestDto(refresh = refresh)) }
         }
+        sessionManager.clear()
+        _mediations.value = emptyList()
+    }
+
+    /** Result of an admin credential check against a target server. */
+    sealed interface AdminVerifyResult {
+        /** Credentials are valid and MFA is satisfied (or not required). */
+        data class Success(val user: User) : AdminVerifyResult
+        /** MFA is required but not yet enrolled; setup the authenticator first. */
+        data class MfaSetupRequired(val otpauthUri: String?, val secret: String?, val userId: Int) : AdminVerifyResult
+        /** MFA is enrolled; a TOTP code is needed to finish the login. */
+        data class MfaCodeRequired(val userId: Int) : AdminVerifyResult
+    }
+
+    /**
+     * Validates administrator credentials against a *target* server before the
+     * app switches to it (enterprise "admin gateway" pattern). Uses a dedicated
+     * one-off client so the current session and config are never touched.
+     */
+    suspend fun verifyAdminAgainst(url: String, email: String, password: String): AdminVerifyResult {
+        val targetBase = url.trim().trimEnd('/') + "/"
+        val service: MediaraApiService = try {
+            buildAdminService(targetBase)
+        } catch (e: Throwable) {
+            throw MediaraApiException("Invalid server address: ${url.trim()}")
+        }
+        val response = try {
+            service.login(LoginRequestDto(email = email.trim(), password = password))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+        response.user?.toDomainUser()?.let { user ->
+            if (user.isStaff) return AdminVerifyResult.Success(user)
+            throw MediaraApiException("This account is not an administrator.")
+        }
+        if (response.mfaSetupRequired == true && response.userId != null) {
+            return AdminVerifyResult.MfaSetupRequired(otpauthUri = null, secret = null, userId = response.userId!!)
+        }
+        if (response.mfaRequired == true && response.userId != null) {
+            return AdminVerifyResult.MfaCodeRequired(response.userId!!)
+        }
+        throw MediaraApiException("Signed in but the response had no profile.")
+    }
+
+    /** Fetch a TOTP enrollment URI for a staff account that has no MFA yet. */
+    suspend fun adminMfaSetup(url: String, email: String, password: String):
+            AdminVerifyResult.MfaSetupRequired {
+        val targetBase = url.trim().trimEnd('/') + "/"
+        val service = buildAdminService(targetBase)
+        val payload = try {
+            service.adminMfaSetup(MfaSetupRequestDto(email = email.trim(), password = password))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+        val userId = payload.userId ?: throw MediaraApiException("MFA enrollment failed to return an account id.")
+        return AdminVerifyResult.MfaSetupRequired(
+            otpauthUri = payload.otpauthUri,
+            secret = payload.secret,
+            userId = userId,
+        )
+    }
+
+    /** Complete MFA enrollment (fresh TOTP code) and return the verified admin. */
+    suspend fun adminMfaSetupComplete(url: String, email: String, password: String, code: String): User {
+        val service = buildAdminService(url.trim().trimEnd('/') + "/")
+        val response = try {
+            service.adminMfaSetupComplete(MfaSetupCompleteRequestDto(email = email.trim(), password = password, code = code.trim()))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+        val user = response.user?.toDomainUser()
+            ?: throw MediaraApiException("MFA enabled but no profile was returned.")
+        if (!user.isStaff) throw MediaraApiException("This account is not an administrator.")
+        return user
+    }
+
+    /** Finish an MFA-gated admin login with a TOTP code. */
+    suspend fun adminMfaVerify(url: String, userId: Int, code: String): User {
+        val service = buildAdminService(url.trim().trimEnd('/') + "/")
+        val response = try {
+            service.adminMfaVerify(MfaVerifyRequestDto(userId = userId, code = code.trim()))
+        } catch (e: Throwable) {
+            throw e.toMediaraError(statusCode = null)
+        }
+        val user = response.user?.toDomainUser()
+            ?: throw MediaraApiException("MFA verified but no profile was returned.")
+        if (!user.isStaff) throw MediaraApiException("This account is not an administrator.")
+        return user
+    }
+
+    private fun buildAdminService(targetBase: String): MediaraApiService =
+        Retrofit.Builder()
+            .baseUrl(targetBase)
+            .client(OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build())
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(MediaraApiService::class.java)
+
+    /** Called after a successful server-address change: drop any old-session tokens. */
+    suspend fun clearSessionForConfigChange() {
         sessionManager.clear()
         _mediations.value = emptyList()
     }
@@ -186,10 +351,8 @@ class MediationRepository(
         role: String
     ): Mediation = withContext(Dispatchers.IO) {
         val code = inviteCode.trim()
-        val byCode = attempt { apiService.getMediationByCode(code) }
-        val medId = byCode.id ?: throw MediaraApiException("No mediation matches that invite code.")
         val dto = attempt {
-            apiService.joinMediation(medId, JoinMediationRequestDto(inviteCode = code, role = role))
+            apiService.joinMediation(JoinMediationRequestDto(inviteCode = code, role = role))
         }
         val med = dto.toDomainMediation()
         cacheMediation(med)
@@ -474,6 +637,10 @@ class MediationRepository(
         val code = code()
         val body = runCatching { response()?.errorBody()?.string() }.getOrNull().orEmpty()
         if (body.isNotBlank()) {
+            // Never leak raw (e.g. HTML) bodies to the user. Only trust JSON errors.
+            if (!body.trimStart().startsWith("{")) {
+                return "Request failed (HTTP $code)."
+            }
             runCatching {
                 val json = JSONObject(body)
                 if (json.has("detail")) return json.optString("detail")
@@ -485,7 +652,6 @@ class MediationRepository(
                     if (value is JSONArray && value.length() > 0) return value.optString(0)
                 }
             }
-            return body
         }
         return "Request failed (HTTP $code)."
     }

@@ -14,13 +14,23 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .models import User
-from .security import generate_totp_secret, generate_verification_code, totp_uri, verify_email_code, verify_totp
+from .security import (
+    generate_password_reset_code,
+    generate_totp_secret,
+    generate_verification_code,
+    totp_uri,
+    verify_email_code,
+    verify_password_reset_code,
+    verify_totp,
+)
 from .serializers import (
     AuthResponseSerializer,
     EmailVerifyRequestSerializer,
     LoginRequestSerializer,
     MfaEnableRequestSerializer,
     MfaVerifyRequestSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RegisterRequestSerializer,
     UserSerializer,
 )
@@ -114,6 +124,55 @@ class EmailVerifyView(APIView):
         return Response({"detail": "Email verified."})
 
 
+class PasswordResetRequestView(APIView):
+    """POST /api/auth/password-reset/request/ — email a 6-digit reset code.
+
+    Always returns 200 even when the address is unknown to avoid leaking which
+    accounts exist. The only difference is whether an email is actually sent.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"].lower().strip()
+        user = User.objects.filter(email=email, data_erased=False, is_active=True).first()
+        if user is None:
+            AuditLog.record(action="auth.password_reset_request_unknown", entity_type="user", entity_id=email, request=request)
+            return Response({"detail": "If an account exists for that email, a reset code was sent."})
+        code = generate_password_reset_code(user)
+        send_mail(
+            "Mediara AI — reset your password",
+            f"Your password reset code is: {code}\nIt expires in 1 hour.\nIf you did not request this, you can safely ignore this email.",
+            None,
+            [user.email],
+            fail_silently=True,
+        )
+        AuditLog.record(actor=user, action="auth.password_reset_request", entity_type="user", entity_id=user.pk, request=request)
+        return Response({"detail": "If an account exists for that email, a reset code was sent."})
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/auth/password-reset/confirm/ — validate code and set a new password."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"].lower().strip()
+        user = User.objects.filter(email=email, data_erased=False, is_active=True).first()
+        if user is None or not verify_password_reset_code(user, serializer.validated_data["code"]):
+            return Response({"detail": "Invalid or expired reset code."}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(serializer.validated_data["password"])
+        user.save(update_fields=["password"])
+        AuditLog.record(actor=user, action="auth.password_reset", entity_type="user", entity_id=user.pk, request=request)
+        return Response({"detail": "Your password has been reset. You can now sign in."})
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [AuthRateThrottle, _LoginScopedThrottle]
@@ -135,10 +194,35 @@ class LoginView(APIView):
 
         AuditLog.record(actor=user, action="auth.login", entity_type="user", entity_id=user.pk, request=request)
 
+        # Email-verification gate: the account password is correct but the
+        # address has not been verified yet, so route the client back to the
+        # verification flow instead of issuing tokens.
+        if not user.email_verified:
+            return Response(
+                {
+                    "detail": "Please verify your email address before signing in.",
+                    "emailVerificationRequired": True,
+                    "email": user.email,
+                },
+                status=status.HTTP_200_OK,
+            )
+
         # MFA gate: one-factor login returns a challenge the client must pass.
+        # Staff accounts are REQUIRED to use MFA (administrative security); when
+        # MFA is not yet enrolled the response flags setup so the app can guide
+        # enrollment instead of failing the login.
         if user.is_mfa_enabled:
             return Response(
                 {"detail": "MFA code required.", "mfaRequired": True, "userId": user.pk},
+                status=status.HTTP_200_OK,
+            )
+        if user.is_staff:
+            return Response(
+                {
+                    "detail": "Administrator accounts require two-factor authentication. Enroll a TOTP app to continue.",
+                    "mfaSetupRequired": True,
+                    "userId": user.pk,
+                },
                 status=status.HTTP_200_OK,
             )
         tokens = _tokens_for(user, mfa_verified=True)
@@ -167,7 +251,12 @@ class MfaEnableView(APIView):
 
 
 class MfaStartEnrollmentView(APIView):
-    """POST /api/auth/mfa/start/ — get a fresh TOTP secret + otpauth:// URI."""
+    """POST /api/auth/mfa/start/ — get a fresh TOTP secret + otpauth:// URI.
+
+    Requires an authenticated session. For staff accounts locked out before
+    enrollment (no token yet), use POST /mfa/setup/ which re-authenticates via
+    password instead.
+    """
 
     permission_classes = [IsAuthenticated]
 
@@ -181,6 +270,70 @@ class MfaStartEnrollmentView(APIView):
             "secret": secret,
             "otpauthUri": totp_uri(secret, user.email),
         })
+
+
+class MfaSetupView(APIView):
+    """POST /api/auth/mfa/setup/ — staff MFA enrollment before login completes.
+
+    The app calls this when LoginView returns `mfaSetupRequired`. Re-authenticates
+    with email+password (only staff may use the password path; ordinary users
+    enroll from an authenticated session), then issues an otpauth:// URI the
+    client displays for scanning.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request):
+        email = (request.data.get("email") or "").lower().strip()
+        password = request.data.get("password") or ""
+        user = authenticate(request, username=email, password=password)
+        if user is None:
+            return Response({"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.is_staff:
+            return Response({"detail": "MFA enrollment is managed from a signed-in session."}, status=status.HTTP_403_FORBIDDEN)
+        if user.is_mfa_enabled:
+            return Response({"detail": "MFA is already enabled for this account."}, status=status.HTTP_400_BAD_REQUEST)
+        secret = user.mfa_secret or generate_totp_secret()
+        if not user.mfa_secret:
+            user.mfa_secret = secret
+            user.save(update_fields=["mfa_secret"])
+        AuditLog.record(actor=user, action="auth.mfa_enrollment_started", entity_type="user", entity_id=user.pk, request=request)
+        return Response({
+            "secret": secret,
+            "otpauthUri": totp_uri(secret, user.email),
+            "userId": user.pk,
+        })
+
+
+class MfaSetupCompleteView(APIView):
+    """POST /api/auth/mfa/setup-complete/ — confirm the scanned code and finish.
+
+    Verifies the TOTP code against the freshly-issued secret, enables MFA, and
+    returns full tokens so the admin login can continue in one round-trip.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request):
+        email = (request.data.get("email") or "").lower().strip()
+        password = request.data.get("password") or ""
+        code = (request.data.get("code") or "").strip()
+        user = authenticate(request, username=email, password=password)
+        if user is None:
+            return Response({"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.is_staff:
+            return Response({"detail": "Not permitted."}, status=status.HTTP_403_FORBIDDEN)
+        if not user.mfa_secret:
+            return Response({"detail": "No MFA enrollment in progress. Use /mfa/setup/ first."}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.is_mfa_enabled and not verify_totp(user.mfa_secret, code):
+            return Response({"detail": "Invalid authentication code."}, status=status.HTTP_401_UNAUTHORIZED)
+        user.is_mfa_enabled = True
+        user.save(update_fields=["is_mfa_enabled"])
+        AuditLog.record(actor=user, action="auth.mfa_enabled", entity_type="user", entity_id=user.pk, request=request)
+        tokens = _tokens_for(user, mfa_verified=True)
+        return Response(AuthResponseSerializer({"user": user, **tokens}).data)
 
 
 class MfaVerifyLoginView(APIView):

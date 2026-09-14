@@ -1,0 +1,18 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mediara AI{% endblock %}</title>
+  <meta name="description" content="Mediara AI — neutral-ground multi-party mediation with private caucus spaces, AI analysis and binding accords.">
+  <link rel="stylesheet" href="{% static 'web/css/mediara.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body data-page="{% block page_name %}{% endblock %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% block body %}{% endblock %}
+  <script>window.API_BASE = "{% block api_base %}/api/{% endblock %}";</script>
+  <script src="{% static 'web/js/mediara.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

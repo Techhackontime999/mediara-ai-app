@@ -3,6 +3,7 @@ package com.mediara.app.data.remote
 import com.mediara.app.BuildConfig
 import com.squareup.moshi.Moshi
 import okhttp3.Authenticator
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,8 +20,8 @@ object ApiClient {
 
     fun create(
         sessionManager: SessionManager,
+        serverConfig: ServerConfigManager,
         moshi: Moshi,
-        apiBaseUrl: String = BuildConfig.API_BASE_URL,
     ): MediaraApiService {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
@@ -31,6 +32,23 @@ object ApiClient {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
+            // Host selection: applies the active runtime base URL (scheme, host, port)
+            // to every outgoing request. Retrofit resolves relative paths against a
+            // placeholder base; this interceptor swaps in the configured server.
+            .addInterceptor { chain ->
+                val base = serverConfig.currentBaseUrl().toHttpUrlOrNull()
+                val request = chain.request()
+                val url = if (base != null) {
+                    request.url.newBuilder()
+                        .scheme(base.scheme)
+                        .host(base.host)
+                        .port(base.port)
+                        .build()
+                } else {
+                    request.url
+                }
+                chain.proceed(request.newBuilder().url(url).build())
+            }
             .addInterceptor { chain ->
                 val token = sessionManager.accessToken()
                 val request = chain.request().newBuilder()
@@ -41,11 +59,11 @@ object ApiClient {
                 chain.proceed(request)
             }
             .addInterceptor(loggingInterceptor)
-            .authenticator(TokenAuthenticator(sessionManager, moshi, apiBaseUrl))
+            .authenticator(TokenAuthenticator(sessionManager, serverConfig, moshi))
             .build()
 
         return Retrofit.Builder()
-            .baseUrl(apiBaseUrl)
+            .baseUrl(serverConfig.currentBaseUrl())
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
@@ -55,12 +73,13 @@ object ApiClient {
 
 /**
  * Attempts to refresh the access token against /api/auth/refresh/ when a request
- * returns 401, then retries the original request with the new token.
+ * returns 401, then retries the original request with the new token. Uses the
+ * active runtime server so post-switch tokens are refreshed against the same host.
  */
 internal class TokenAuthenticator(
     private val sessionManager: SessionManager,
+    private val serverConfig: ServerConfigManager,
     private val moshi: Moshi,
-    private val apiBaseUrl: String,
 ) : Authenticator {
 
     private val httpClient = OkHttpClient()
@@ -77,7 +96,7 @@ internal class TokenAuthenticator(
                     .toRequestBody("application/json".toMediaType())
 
                 val refreshRequest = Request.Builder()
-                    .url(apiBaseUrl.trimEnd('/') + "/api/auth/refresh/")
+                    .url(serverConfig.currentBaseUrl().trimEnd('/') + "/api/auth/refresh/")
                     .post(serialized)
                     .build()
 

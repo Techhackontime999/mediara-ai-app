@@ -1,10 +1,7 @@
 package com.mediara.app.data.remote
 
 import android.content.Context
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import android.content.SharedPreferences
 import com.mediara.app.data.model.User
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -14,16 +11,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.io.IOException
-
-private val Context.sessionDataStore by preferencesDataStore(name = "mediara_session")
+import kotlinx.coroutines.withContext
 
 /**
- * Persists the JWT access/refresh tokens and the signed-in user via DataStore,
- * and exposes them to the UI plus a synchronous surface for OkHttp.
+ * Persists the JWT access/refresh tokens and the signed-in user in
+ * Keystore-backed encrypted storage, and exposes them to the UI plus a
+ * synchronous surface for OkHttp. Disk/keystore work is kept off the main
+ * thread; the in-memory mirrors are volatile for lock-free reads by interceptors.
  */
 class SessionManager(context: Context) {
 
@@ -44,14 +39,15 @@ class SessionManager(context: Context) {
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
+    private val prefs: SharedPreferences by lazy {
+        SecurePrefs.forName(appContext, "mediara_session")
+    }
+
     init {
         scope.launch {
-            val prefs = appContext.sessionDataStore.data
-                .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
-                .first()
-            accessToken = prefs[ACCESS_KEY] ?: ""
-            refreshToken = prefs[REFRESH_KEY] ?: ""
-            _user.value = prefs[USER_KEY]?.let { json ->
+            accessToken = prefs.getString(ACCESS_KEY, "") ?: ""
+            refreshToken = prefs.getString(REFRESH_KEY, "") ?: ""
+            _user.value = prefs.getString(USER_KEY, null)?.let { json ->
                 runCatching { userAdapter.fromJson(json) }.getOrNull()
             }
             _isLoggedIn.value = refreshToken.isNotBlank()
@@ -74,18 +70,21 @@ class SessionManager(context: Context) {
         _user.value = user
         _isLoggedIn.value = refresh.isNotBlank()
         val json = user?.let { runCatching { userAdapter.toJson(it) }.getOrNull() }
-        appContext.sessionDataStore.edit { prefs ->
-            prefs[ACCESS_KEY] = access
-            prefs[REFRESH_KEY] = refresh
-            if (json != null) prefs[USER_KEY] = json else prefs.remove(USER_KEY)
+        withContext(Dispatchers.IO) {
+            prefs.edit()
+                .putString(ACCESS_KEY, access)
+                .putString(REFRESH_KEY, refresh)
+                .apply()
+            if (json != null) prefs.edit().putString(USER_KEY, json).apply()
+            else prefs.edit().remove(USER_KEY).apply()
         }
     }
 
     suspend fun setUser(user: User) {
         _user.value = user
         val json = runCatching { userAdapter.toJson(user) }.getOrNull()
-        appContext.sessionDataStore.edit { prefs ->
-            if (json != null) prefs[USER_KEY] = json
+        if (json != null) {
+            withContext(Dispatchers.IO) { prefs.edit().putString(USER_KEY, json).apply() }
         }
     }
 
@@ -96,9 +95,7 @@ class SessionManager(context: Context) {
     /** Called from the OkHttp Authenticator (background thread), not suspendable. */
     fun setAccessSync(access: String) {
         accessToken = access
-        scope.launch {
-            appContext.sessionDataStore.edit { prefs -> prefs[ACCESS_KEY] = access }
-        }
+        scope.launch { prefs.edit().putString(ACCESS_KEY, access).apply() }
     }
 
     /** Called from the OkHttp Authenticator when the refresh token is rejected. */
@@ -108,17 +105,17 @@ class SessionManager(context: Context) {
         _user.value = null
         _isLoggedIn.value = false
         scope.launch {
-            appContext.sessionDataStore.edit { prefs ->
-                prefs.remove(ACCESS_KEY)
-                prefs.remove(REFRESH_KEY)
-                prefs.remove(USER_KEY)
-            }
+            prefs.edit()
+                .remove(ACCESS_KEY)
+                .remove(REFRESH_KEY)
+                .remove(USER_KEY)
+                .apply()
         }
     }
 
     private companion object {
-        val ACCESS_KEY = stringPreferencesKey("access_token")
-        val REFRESH_KEY = stringPreferencesKey("refresh_token")
-        val USER_KEY = stringPreferencesKey("user_json")
+        const val ACCESS_KEY = "access_token"
+        const val REFRESH_KEY = "refresh_token"
+        const val USER_KEY = "user_json"
     }
 }

@@ -21,6 +21,9 @@
 -dontwarn okhttp3.internal.**
 -dontwarn org.codehaus.mojo.animal_sniffer.**
 
+# security-crypto (Tink) references errorprone annotations that are compile-only.
+-dontwarn com.google.errorprone.annotations.**
+
 # Preserve stack-trace source info for crash reports.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

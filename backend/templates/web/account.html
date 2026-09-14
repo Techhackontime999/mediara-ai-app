@@ -1,0 +1,132 @@
+{% extends "web/base.html" %}
+{% block title %}Account — Mediara AI{% endblock %}
+{% block page_name %}account{% endblock %}
+{% block api_base %}/api/auth/{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="container">
+    <a class="brand no-underline" href="/dashboard/">
+      <span class="brand-mark">M</span>
+      Mediara&nbsp;AI
+    </a>
+    <nav class="nav-actions">
+      <a class="btn btn-ghost btn-sm" href="/dashboard/">Dashboard</a>
+    </nav>
+  </div>
+</header>
+
+<main class="section tight" id="main">
+  <div class="container medium">
+    <h1 style="font-size:26px;margin-bottom:4px;">Account & profile</h1>
+    <p class="muted small" style="margin:0 0 24px;">Your Mediara session identity.</p>
+
+    <div id="loading">
+      <div class="card pad"><div class="skeleton" style="height:16px;width:40%;"></div><div style="height:10px;"></div><div class="skeleton" style="height:16px;width:60%;"></div></div>
+    </div>
+
+    <div id="content" style="display:none;">
+      <div class="card pad" style="margin-bottom:20px;">
+        <div class="row between wrap">
+          <div class="row">
+            <span class="avatar" id="avatarBox" style="width:48px;height:48px;font-size:16px;">ME</span>
+            <div>
+              <h3 id="nameText">—</h3>
+              <p class="small muted" style="margin:2px 0 0;" id="emailText">—</p>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn btn-secondary btn-sm" id="exportBtn">Export my data</button>
+            <button class="btn btn-primary btn-sm" id="signoutBtn">Sign out</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card pad">
+        <h2 style="font-size:17px;margin-bottom:4px;">Privacy</h2>
+        <p class="small muted" style="margin:0 0 16px;">
+          Your private caucus messages are never shared with other parties and never stored in logs.
+          Export or erase your data at any time — erasure is permanent.
+        </p>
+        <div class="row">
+          <button class="btn btn-secondary btn-sm" id="purgeBtn">Erase my data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const M = window.Mediara;
+  if (!M.requireAuth("/account/")) return;
+
+  const loading = document.getElementById("loading");
+  const content = document.getElementById("content");
+
+  async function load() {
+    try {
+      const me = await M.apiJson("me/");
+      M.storage.setUser({
+        name: me.name || "User",
+        email: me.email || "",
+        isStaff: me.isStaff || false,
+      });
+      document.getElementById("nameText").textContent = me.name || "User";
+      document.getElementById("emailText").textContent = me.email + (me.emailVerified ? " · verified" : " · not verified");
+      document.getElementById("avatarBox").textContent = (me.name || "ME").slice(0, 2).toUpperCase();
+      document.getElementById("avatarLink") && (document.getElementById("avatarLink").textContent = (me.name || "ME").slice(0, 2).toUpperCase());
+      loading.style.display = "none";
+      content.style.display = "block";
+    } catch (err) {
+      loading.style.display = "none";
+      document.getElementById("main").insertAdjacentHTML("beforeend",
+        `<div class="alert alert-error">${M.escapeHtml(err.message)}</div>`);
+    }
+  }
+
+  document.getElementById("signoutBtn").addEventListener("click", () => {
+    M.clearSession();
+    location.href = "/";
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("exportBtn");
+    btn.disabled = true;
+    btn.textContent = "Preparing…";
+    try {
+      const data = await M.apiJson("data-export/");
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "mediara-export-" + (data.exportedAt || Date.now()).slice(0, 10) + ".json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      M.toast("Export downloaded.", "success");
+    } catch (err) {
+      M.toast(err.message, "error");
+    }
+    btn.disabled = false;
+    btn.textContent = "Export my data";
+  });
+
+  document.getElementById("purgeBtn").addEventListener("click", async () => {
+    if (!confirm("This permanently erases your account and all data. This cannot be undone. Continue?")) return;
+    const btn = document.getElementById("purgeBtn");
+    btn.disabled = true;
+    btn.textContent = "Erasing…";
+    try {
+      await M.apiJson("data-purge/", { method: "POST" });
+      M.clearSession();
+      location.href = "/";
+    } catch (err) {
+      M.toast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "Erase my data";
+    }
+  });
+
+  load();
+})();
+</script>
+{% endblock %}

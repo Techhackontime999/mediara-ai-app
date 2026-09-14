@@ -42,6 +42,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email_verified = models.BooleanField(default=False)
     verification_code_hash = models.CharField(max_length=64, blank=True, default="")
     verification_code_expires_at = models.DateTimeField(null=True, blank=True)
+    password_reset_hash = models.CharField(max_length=64, blank=True, default="")
+    password_reset_expires_at = models.DateTimeField(null=True, blank=True)
     is_mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=64, blank=True, default="")
     data_erased = models.BooleanField(default=False)

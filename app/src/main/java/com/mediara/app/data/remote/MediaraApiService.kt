@@ -9,7 +9,21 @@ import retrofit2.http.Streaming
 
 interface MediaraApiService {
 
-    // --- Auth ---
+    // --- MFA (staff setup / login completion) ---
+
+    @POST("api/auth/mfa/setup/")
+    suspend fun adminMfaSetup(@Body body: MfaSetupRequestDto): MfaSetupResponseDto
+
+    @POST("api/auth/mfa/setup-complete/")
+    suspend fun adminMfaSetupComplete(@Body body: MfaSetupCompleteRequestDto): AuthResponseDto
+
+    @POST("api/auth/mfa/verify/")
+    suspend fun adminMfaVerify(@Body body: MfaVerifyRequestDto): AuthResponseDto
+
+    // --- MFA (session-enrolled) ---
+
+    @POST("api/auth/mfa/enable/")
+    suspend fun enableMfa(@Body body: MfaEnableRequestDto): MessageDto
 
     @POST("api/auth/register/")
     suspend fun register(@Body body: RegisterRequestDto): AuthResponseDto
@@ -26,6 +40,20 @@ interface MediaraApiService {
     @GET("api/auth/me/")
     suspend fun me(): UserDto
 
+    // --- Email verification & password reset ---
+
+    @POST("api/auth/verify-email/")
+    suspend fun verifyEmail(@Body body: VerifyEmailRequestDto): MessageDtoSimple
+
+    @POST("api/auth/dev-resend-code/")
+    suspend fun devResendCode(@Body body: DevResendCodeRequestDto): MessageDtoSimple
+
+    @POST("api/auth/password-reset/request/")
+    suspend fun requestPasswordReset(@Body body: PasswordResetRequestDto): MessageDtoSimple
+
+    @POST("api/auth/password-reset/confirm/")
+    suspend fun confirmPasswordReset(@Body body: PasswordResetConfirmRequestDto): MessageDtoSimple
+
     // --- Mediations ---
 
     @GET("api/mediations/")
@@ -40,8 +68,8 @@ interface MediaraApiService {
     @GET("api/mediations/by-code/{inviteCode}/")
     suspend fun getMediationByCode(@Path("inviteCode") inviteCode: String): MediationDto
 
-    @POST("api/mediations/{id}/join/")
-    suspend fun joinMediation(@Path("id") id: Int, @Body body: JoinMediationRequestDto): MediationDto
+    @POST("api/mediations/join/")
+    suspend fun joinMediation(@Body body: JoinMediationRequestDto): MediationDto
 
     @POST("api/mediations/{id}/invite/")
     suspend fun inviteParticipant(@Path("id") id: Int, @Body body: InviteParticipantRequestDto): ParticipantDto

@@ -18,6 +18,31 @@ from django.utils import timezone
 TOTP_PERIOD_SECONDS = 30
 TOTP_DIGITS = 6
 VERIFICATION_CODE_TTL = timedelta(hours=24)
+PASSWORD_RESET_TTL = timedelta(hours=1)
+
+
+def generate_password_reset_code(user) -> str:
+    """Return a 6-digit reset code and store its SHA-256 hash (never plaintext)."""
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    user.password_reset_hash = _hash_code(code)
+    user.password_reset_expires_at = timezone.now() + PASSWORD_RESET_TTL
+    user.save(update_fields=["password_reset_hash", "password_reset_expires_at"])
+    return code
+
+
+def verify_password_reset_code(user, code: str) -> bool:
+    """True when `code` matches a fresh, unexpired reset code (single use)."""
+    if not code or not user.password_reset_hash:
+        return False
+    stored = user.password_reset_hash
+    expires_at = user.password_reset_expires_at
+    # Single-use: any attempt invalidates the code, preventing brute force.
+    user.password_reset_hash = ""
+    user.password_reset_expires_at = None
+    user.save(update_fields=["password_reset_hash", "password_reset_expires_at"])
+    if expires_at is None or expires_at < timezone.now():
+        return False
+    return hmac.compare_digest(stored, _hash_code(code))
 
 
 def generate_verification_code(user) -> str:

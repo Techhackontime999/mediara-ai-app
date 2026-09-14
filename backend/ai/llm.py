@@ -180,7 +180,11 @@ def _call_openai_compatible(cfg: dict, prompt: str, temperature: float, max_toke
         logger.warning("LLM %s returned %s: %s", url, resp.status_code, resp.text[:500])
         raise LLMUnavailableError(f"LLM HTTP {resp.status_code}")
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:  # requests.exceptions.JSONDecodeError subclasses ValueError
+        logger.warning("LLM %s returned a non-JSON body: %s", url, resp.text[:300])
+        raise LLMUnavailableError("LLM returned invalid JSON") from exc
     choices = data.get("choices") or []
     if not choices:
         raise LLMUnavailableError("LLM returned no choices")
@@ -212,7 +216,11 @@ def _call_gemini(cfg: dict, prompt: str, temperature: float, max_tokens: int) ->
         logger.warning("Gemini returned %s: %s", resp.status_code, resp.text[:500])
         raise LLMUnavailableError(f"Gemini HTTP {resp.status_code}")
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except ValueError as exc:  # requests.exceptions.JSONDecodeError subclasses ValueError
+        logger.warning("Gemini returned a non-JSON body: %s", resp.text[:300])
+        raise LLMUnavailableError("Gemini returned invalid JSON") from exc
     candidates = data.get("candidates") or []
     if not candidates:
         raise LLMUnavailableError("Gemini returned no candidates")

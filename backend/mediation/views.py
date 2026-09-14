@@ -132,6 +132,22 @@ class MediationDetailView(APIView):
             return Response({"detail": "Mediation not found."}, status=status.HTTP_404_NOT_FOUND)
         if not mediation_permission(request, mediation):
             return Response({"detail": "You are not a participant of this mediation."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Attach the derived objects the detail serializer reads out, so a
+        # single request returns analysis, proposals, agreement and follow-ups.
+        from agreements.models import Agreement, FollowUpReport
+        from resolutions.models import ConflictAnalysis, Resolution
+
+        mediation._analysis = ConflictAnalysis.objects.filter(mediation=mediation).first()
+        mediation._active_resolution = Resolution.objects.filter(
+            mediation=mediation, is_active=True
+        ).order_by("proposal_number").first()
+        mediation._proposals = Resolution.objects.filter(
+            mediation=mediation, is_active=True
+        ).prefetch_related("votes")
+        mediation._agreement = Agreement.objects.filter(mediation=mediation).first()
+        mediation._followup_reports = FollowUpReport.objects.filter(mediation=mediation).order_by("-created_at")
+
         return Response(MediationDetailSerializer(mediation).data)
 
 

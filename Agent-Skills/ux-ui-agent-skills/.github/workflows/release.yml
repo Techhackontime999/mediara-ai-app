@@ -1,0 +1,125 @@
+name: Release on tag
+
+# Auto-create a GitHub Release whenever a vX.Y.Z tag is pushed.
+# Uses the built-in GITHUB_TOKEN — no manual `gh auth login` / npm login needed.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:           # manual run to backfill an existing tag
+    inputs:
+      tag:
+        description: 'Existing tag to create a Release for (e.g. v1.2.0)'
+        required: true
+
+permissions:
+  contents: write              # required for gh release create/edit
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag name
+        id: tag
+        run: echo "name=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract changelog section from README
+        run: |
+          TAG='${{ steps.tag.outputs.name }}'
+          VER="${TAG#v}"
+          awk -v ver="$VER" '
+            $0 ~ ("^### `v" ver "`") { flag=1; next }
+            flag && /^### `v/ { flag=0 }
+            flag { print }
+          ' README.md > RELEASE_NOTES.md
+          echo "----- release notes -----"
+          cat RELEASE_NOTES.md
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='${{ steps.tag.outputs.name }}'
+          if [ -s RELEASE_NOTES.md ]; then
+            NOTES=(--notes-file RELEASE_NOTES.md)
+          else
+            NOTES=(--generate-notes)
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" "${NOTES[@]}"
+          else
+            gh release create "$TAG" --title "$TAG" --verify-tag "${NOTES[@]}"
+          fi
+
+  publish-npm:
+    # Only on a real tag push (not manual backfill of an old tag).
+    # Requires repo secret NPM_TOKEN = an npm Automation token (bypasses 2FA).
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write          # enables npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Guard — tag must match package.json version
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "package.json=$PKG  tag=$TAG"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::Tag v$TAG does not match package.json version $PKG — bump package.json before tagging."
+            exit 1
+          fi
+
+      - name: Is this version already on the registry?
+        id: exists
+        run: |
+          VER="$(node -p "require('./package.json').version")"
+          NAME="$(node -p "require('./package.json').name")"
+          # Unauthenticated read - this must work even when NPM_TOKEN is broken.
+          CODE="$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/$NAME/$VER")"
+          if [ "$CODE" = "200" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VER is already published (a manual npm publish, or a re-run of this tag). Nothing to do - npm cannot publish over an existing version, so this is success, not failure."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "$NAME@$VER is not on the registry yet (HTTP $CODE) - publishing."
+          fi
+
+      - name: Preflight - is NPM_TOKEN a usable Automation token?
+        if: steps.exists.outputs.skip != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN}" ]; then
+            echo "::error::Repo secret NPM_TOKEN is empty. Create an npm *Automation* token"
+            echo "::error::(npmjs.com -> Access Tokens -> Generate New Token -> Automation; Classic"
+            echo "::error::'Publish' tokens still prompt for 2FA and fail here), then add it as the"
+            echo "::error::repo secret NPM_TOKEN. The GitHub Release above was created regardless."
+            exit 1
+          fi
+          if ! npm whoami >/dev/null 2>&1; then
+            echo "::error::NPM_TOKEN is set but the registry rejects it (401). It is most likely a"
+            echo "::error::Classic 'Publish' token, an expired token, or one scoped to another"
+            echo "::error::account. Replace it with an npm Automation token, which bypasses 2FA."
+            echo "::error::Nothing else is wrong: the tag, the version guard, and the GitHub"
+            echo "::error::Release all passed."
+            exit 1
+          fi
+          echo "authenticated as $(npm whoami)"
+
+      - name: Publish to npm
+        if: steps.exists.outputs.skip != 'true'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

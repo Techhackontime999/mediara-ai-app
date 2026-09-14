@@ -46,7 +46,9 @@ data class User(
     val name: String,
     val email: String,
     val avatarInitials: String = name.take(2).uppercase(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val isStaff: Boolean = false,
+    val emailVerified: Boolean = false
 )
 
 data class Participant(

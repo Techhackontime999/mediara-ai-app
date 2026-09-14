@@ -1,5 +1,7 @@
 package com.mediara.app.ui.navigation
 
+import android.net.Uri
+
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
     object Onboarding : Screen("onboarding")
@@ -7,8 +9,19 @@ sealed class Screen(val route: String) {
     object SignUp : Screen("signup")
     object Dashboard : Screen("dashboard")
     object Profile : Screen("profile")
+    object Settings : Screen("settings")
     object CreateMediation : Screen("create_mediation")
     object JoinMediation : Screen("join_mediation")
+
+    object ForgotPassword : Screen("forgot_password")
+
+    object ResetPassword : Screen("reset_password/{email}") {
+        fun createRoute(email: String) = "reset_password/${Uri.encode(email)}"
+    }
+
+    object EmailVerification : Screen("verify_email/{email}") {
+        fun createRoute(email: String) = "verify_email/${Uri.encode(email)}"
+    }
 
     object MediationDetail : Screen("mediation_detail/{mediationId}") {
         fun createRoute(mediationId: String) = "mediation_detail/$mediationId"
@@ -44,5 +57,24 @@ sealed class Screen(val route: String) {
 
     object SafetyIntervention : Screen("safety_intervention/{mediationId}") {
         fun createRoute(mediationId: String) = "safety_intervention/$mediationId"
+    }
+
+    object AdminConsole : Screen("admin_console")
+
+    companion object {
+        /** Top-level destinations hosted inside the bottom navigation bar. */
+        val BottomBarRoutes by lazy { listOf(Dashboard.route, Profile.route, Settings.route) }
+
+        /** Routes that crossfade instead of sliding (bottom-bar tabs). */
+        val CrossfadeRoutes by lazy { listOf(Dashboard.route, Profile.route, Settings.route) }
+
+        /** Auth / overlay screens that rise from the bottom. */
+        val RiseRoutes by lazy {
+            listOf(
+                Login.route, SignUp.route, ForgotPassword.route,
+                ResetPassword.route, EmailVerification.route,
+                JoinMediation.route, CreateMediation.route
+            )
+        }
     }
 }

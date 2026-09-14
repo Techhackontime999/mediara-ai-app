@@ -1,0 +1,122 @@
+name: CI — quality gates
+
+# Runs the design-system integrity + accessibility gates on every push and PR.
+# These enforce the rules workflows/design-qa.md prescribes (token validity,
+# alias resolution, contrast, component-spec completeness) so regressions can't merge.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  # Lets a run be started by hand when a push does not register one.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per ref. A duplicate (a slow push registering after a manual dispatch,
+# or two pushes in a row) cancels the older one instead of running twice.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Token validity + alias resolution
+        run: python3 scripts/validate_tokens.py
+
+      - name: WCAG contrast gate (light + dark, required pairs)
+        run: python3 scripts/validate_contrast.py
+
+      - name: Component-spec completeness
+        run: python3 scripts/validate_component_spec.py
+
+      - name: Golden examples stay token-only (no drift)
+        run: python3 scripts/lint_hardcodes.py examples/golden
+
+      - name: Every token reference resolves to the theme (no floating vars)
+        run: python3 scripts/validate_theme_refs.py
+
+      - name: No emoji in UI output or taste files
+        run: python3 scripts/check_no_emoji.py
+
+      - name: Eval harness self-test (the cold-start scorer still works)
+        run: node evals/run.mjs --list
+
+      - name: Instruction surface intact (no demoted rule, no orphan rule file)
+        run: python3 scripts/validate_instruction_surface.py
+
+      - name: Starter template sound (layout, aliases, WCAG light + dark)
+        run: python3 scripts/validate_template.py
+
+      - name: Scaffold smoke - `new` produces the reference layout
+        run: |
+          node bin/cli.js new /tmp/scaffold-smoke
+          test -f /tmp/scaffold-smoke/CLAUDE.md
+          test -f /tmp/scaffold-smoke/CLAUDE.local.md
+          test -f /tmp/scaffold-smoke/design-tokens.json
+          test -f /tmp/scaffold-smoke/.claude/settings.json
+          test -d /tmp/scaffold-smoke/.claude/rules
+          test -d /tmp/scaffold-smoke/src/components
+          test ! -f /tmp/scaffold-smoke/CLAUDE.local.md.template
+          cd /tmp/scaffold-smoke && python3 scripts/validate_contrast.py design-tokens.json
+
+      - name: CLI smoke + npm test
+        run: npm test
+
+      - name: Unit + CLI tests (no browser needed)
+        run: npm run test:unit
+
+  render:
+    # Real-render WCAG gate — opens the example HTML in headless Chromium and
+    # measures the actual computed-style contrast of every text element (light + dark).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright + Chromium
+        run: npm i -D playwright && npx playwright install --with-deps chromium
+      - name: Real-render contrast (Apple demo + sample, light)
+        run: node scripts/measure_render.mjs examples/apple-demo/index.html examples/sample-app/preview.html
+      - name: Real-render contrast (sample, dark)
+        run: node scripts/measure_render.mjs --dark examples/sample-app/preview.html
+      - name: State-aware WCAG (default/hover/focus) — sample + brandkit
+        run: |
+          node scripts/verify_states.mjs examples/sample-app/preview.html
+          node scripts/verify_states.mjs --dark examples/sample-app/preview.html
+          node scripts/verify_states.mjs examples/brandkit-demo/index.html
+      - name: axe-core a11y (ARIA/labels/landmarks)
+        run: |
+          node scripts/axe_audit.mjs examples/sample-app/preview.html
+          node scripts/axe_audit.mjs examples/brandkit-demo/index.html
+      - name: Interactive truth (declared state contracts are honoured on click)
+        run: |
+          node scripts/verify_interactive.mjs examples/component-states
+          node scripts/verify_interactive.mjs examples/sample-app
+
+      - name: Focus-trap + RTL + token-build
+        run: |
+          node scripts/verify_focustrap.mjs examples/sample-app/preview.html --open="#delBtn"
+          node scripts/verify_rtl.mjs examples/sample-app/preview.html
+          node scripts/build_tokens.mjs --out dist/tokens.css
+      - name: Eval harness self-test (14 objective gates on the reference app)
+        run: node evals/run.mjs --self-test
+
+      - name: Meta-gates - every gate still REJECTS a broken fixture
+        # The gates above all run against examples that pass. This is the half that
+        # proves they can still fail: negative fixtures per gate, plus the guards
+        # against a gate reporting green without having looked.
+        run: npm run test:gates

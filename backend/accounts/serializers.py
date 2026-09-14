@@ -8,11 +8,12 @@ class UserSerializer(serializers.ModelSerializer):
     avatarInitials = serializers.CharField(source="avatar_initials", read_only=True)
     emailVerified = serializers.BooleanField(source="email_verified", read_only=True)
     mfaEnabled = serializers.BooleanField(source="is_mfa_enabled", read_only=True)
+    isStaff = serializers.BooleanField(source="is_staff", read_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "uuid", "name", "email", "avatarInitials", "date_joined", "emailVerified", "mfaEnabled")
-        read_only_fields = ("uuid", "date_joined", "email_verified", "is_mfa_enabled")
+        fields = ("id", "uuid", "name", "email", "avatarInitials", "date_joined", "emailVerified", "mfaEnabled", "isStaff")
+        read_only_fields = ("uuid", "date_joined", "email_verified", "is_mfa_enabled", "is_staff")
 
 
 class RegisterRequestSerializer(serializers.ModelSerializer):
@@ -43,6 +44,20 @@ class LoginRequestSerializer(serializers.Serializer):
 class EmailVerifyRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField(min_length=6, max_length=6)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(min_length=6, max_length=6)
+    password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_password(self, value):
+        validate_password_strength(value)
+        return value
 
 
 class MfaEnableRequestSerializer(serializers.Serializer):

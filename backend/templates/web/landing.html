@@ -1,0 +1,92 @@
+{% extends "web/base.html" %}
+{% block title %}Mediara AI — Neutral-ground mediation{% endblock %}
+{% block page_name %}landing{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="container">
+    <a class="brand no-underline" href="/">
+      <span class="brand-mark">M</span>
+      Mediara&nbsp;AI
+    </a>
+    <nav class="nav-actions">
+      <a class="btn btn-ghost btn-sm" href="/login/">Sign in</a>
+      <a class="btn btn-primary btn-sm" href="/register/">Get started</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <p class="rule tiny" style="text-transform:uppercase;letter-spacing:0.14em;color:var(--accent);font-weight:600;">AI multi-party mediation protocol</p>
+        <h1 class="display">Neutral ground.<br>Real accords.</h1>
+        <p class="lead" style="margin:18px 0 0;max-width:480px;">
+          Zero-disclosure private caucus spaces for honest synthesis, guided by conflict analysis and consensus-seeking proposals.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="/register/">Start a mediation</a>
+          <a class="btn btn-secondary btn-lg" href="/login/">Sign in</a>
+        </div>
+      </div>
+      <div class="card pad">
+        <p class="tiny" style="text-transform:uppercase;letter-spacing:0.12em;color:var(--ink-mute);font-weight:600;margin:0 0 16px;">How it works</p>
+        <div class="feature-list">
+          <div class="feature">
+            <span class="dot"></span>
+            <div>
+              <strong>Private caucus</strong>
+              <span class="small muted">Each side shares its interests privately, zero disclosure to the other side.</span>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="dot"></span>
+            <div>
+              <strong>AI conflict analysis</strong>
+              <span class="small muted">Common goals, root causes and non-negotiables surfaced with grounding.</span>
+            </div>
+          </div>
+          <div class="feature">
+            <span class="dot"></span>
+            <div>
+              <strong>Consensus proposals</strong>
+              <span class="small muted">Refine acceptable terms until every party votes to accept.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section tight">
+  <div class="container">
+    <div class="row between">
+      <div>
+        <h2>The mediation pipeline</h2>
+        <p class="muted small" style="margin:4px 0 0;">From dispute to signed accord, with audit trails at every step.</p>
+      </div>
+      <a class="btn btn-primary" href="/register/">Begin now</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="row">
+      <span>Mediara AI</span>
+      <span class="tiny">Private by design. Zero-disclosure by default.</span>
+    </div>
+  </div>
+</footer>
+{% endblock %}
+{% block scripts %}
+<script>
+  (() => {
+    const api = window.Mediara;
+    api.storage.setTokens(null);
+    api.storage.clearTokens();
+    api.storage.clearUser();
+  })();
+</script>
+{% endblock %}

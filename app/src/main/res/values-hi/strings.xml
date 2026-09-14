@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">मेडिअरा AI</string>
+
+    <string name="loading">लोड हो रहा है&#8230;</string>
+    <string name="error_generic">कुछ गलत हो गया। कृपया पुनः प्रयास करें।</string>
+    <string name="action_continue">जारी रखें</string>
+    <string name="action_submit">सबमिट करें</string>
+    <string name="action_back">वापस</string>
+    <string name="action_resend">कोड पुनः भेजें</string>
+    <string name="action_ok">ठीक है</string>
+
+    <string name="field_email">ईमेल पता</string>
+    <string name="field_email_hint">you@example.com</string>
+    <string name="field_password">पासवर्ड</string>
+    <string name="field_password_hint">अपना पासवर्ड दर्ज करें</string>
+    <string name="field_confirm_password">पासवर्ड की पुष्टि करें</string>
+    <string name="field_full_name">पूरा नाम</string>
+    <string name="field_code">सत्यापन कोड</string>
+    <string name="field_code_hint">6 अंकों का कोड दर्ज करें</string>
+    <string name="field_new_password">नया पासवर्ड</string>
+
+    <string name="error_fill_all">कृपया सभी फ़ील्ड भरें।</string>
+    <string name="error_email_invalid">कृपया मान्य ईमेल पता दर्ज करें।</string>
+    <string name="error_password_length">पासवर्ड कम से कम 8 अक्षरों का होना चाहिए।</string>
+    <string name="error_password_upper">पासवर्ड में एक बड़ा अक्षर होना चाहिए।</string>
+    <string name="error_password_lower">पासवर्ड में एक छोटा अक्षर होना चाहिए।</string>
+    <string name="error_password_digit">पासवर्ड में कम से कम एक अंक होना चाहिए।</string>
+    <string name="error_password_mismatch">पासवर्ड मेल नहीं खाते।</string>
+    <string name="error_network">सर्वर तक पहुँच नहीं पाई। अपना कनेक्शन जाँचें।</string>
+
+    <string name="login_title">वापस स्वागत है</string>
+    <string name="login_subtitle">अपने गोपनीय मध्यस्थता सत्र में साइन इन करें</string>
+    <string name="login_sign_in">साइन इन करें</string>
+    <string name="login_forgot_password">पासवर्ड भूल गए?</string>
+    <string name="login_no_account">खाता नहीं है?</string>
+    <string name="login_sign_up">साइन अप करें</string>
+    <string name="login_verification_required">कृपया पहले अपना ईमेल सत्यापित करें।</string>
+
+    <string name="signup_title">खाता बनाएँ</string>
+    <string name="signup_subtitle">मेडिअरा AI मध्यस्थता से जुड़ें</string>
+    <string name="signup_create">खाता बनाएँ</string>
+    <string name="signup_have_account">पहले से खाता है?</string>
+    <string name="signup_terms">जारी रखकर आप हमारी शर्तों और गोपनीयता नीति से सहमत होते हैं।</string>
+
+    <string name="forgot_title">पासवर्ड रीसेट करें</string>
+    <string name="forgot_subtitle">वह ईमेल पता दर्ज करें जिसका उपयोग आपने साइन अप करते समय किया था। हम आपको 6 अंकों का कोड भेजेंगे।</string>
+    <string name="forgot_send_code">रीसेट कोड भेजें</string>
+    <string name="forgot_code_sent">यदि वह खाता मौजूद है, तो उसे एक रीसेट कोड भेजा गया है।</string>
+    <string name="forgot_back_to_login">साइन इन पर वापस</string>
+
+    <string name="reset_title">नया पासवर्ड सेट करें</string>
+    <string name="reset_subtitle">अपने ईमेल पर भेजा गया कोड दर्ज करें और एक नया पासवर्ड चुनें।</string>
+    <string name="reset_submit">पासवर्ड रीसेट करें</string>
+    <string name="reset_success">आपका पासवर्ड रीसेट हो गया। कृपया साइन इन करें।</string>
+
+    <string name="verify_title">अपना ईमेल सत्यापित करें</string>
+    <string name="verify_subtitle">आपके ईमेल पर 6 अंकों का सत्यापन कोड भेजा गया है। अपना खाता सक्रिय करने के लिए नीचे दर्ज करें।</string>
+    <string name="verify_submit">ईमेल सत्यापित करें</string>
+    <string name="verify_resend">सत्यापन कोड पुनः भेजें</string>
+    <string name="verify_resend_success">एक नया कोड आपके ईमेल पर भेजा गया है।</string>
+    <string name="verify_email_updated">ईमेल सत्यापित। अब आप साइन इन कर सकते हैं।</string>
+    <string name="verify_dev_code_sent">Dev कोड: %s</string>
+
+    <string name="nav_home">होम</string>
+    <string name="nav_profile">प्रोफ़ाइल</string>
+    <string name="nav_settings">सेटिंग्स</string>
+
+    <string name="settings_title">सेटिंग्स</string>
+    <string name="settings_appearance">रूप</string>
+    <string name="settings_accent">रंग चुनें</string>
+    <string name="settings_font">फ़ॉन्ट शैली</string>
+    <string name="settings_font_default">डिफ़ॉल्ट</string>
+    <string name="settings_font_serif">सेरिफ़</string>
+    <string name="settings_font_mono">मोनोस्पेस</string>
+    <string name="settings_dark_mode">डार्क मोड</string>
+    <string name="settings_dark_system">सिस्टम के अनुसार</string>
+    <string name="settings_dark_light">लाइट</string>
+    <string name="settings_dark_dark">डार्क</string>
+    <string name="settings_text_size">टेक्स्ट का आकार</string>
+    <string name="settings_text_small">छोटा</string>
+    <string name="settings_text_default">डिफ़ॉल्ट</string>
+    <string name="settings_text_large">बड़ा</string>
+    <string name="settings_language">भाषा</string>
+    <string name="settings_general">सामान्य</string>
+    <string name="settings_about">ऐप के बारे में</string>
+    <string name="settings_version">संस्करण 1.0.0</string>
+    <string name="settings_privacy">गोपनीयता और निष्पक्षता</string>
+    <string name="settings_privacy_desc">मेडिअरा AI शून्य-प्रकटीकरण निजी ट्रांसक्रिप्ट पर काम करता है। AI मध्यस्थ कोई कानूनी या मानसिक स्वास्थ्य सलाह नहीं देता।</string>
+    <string name="settings_logout">साइन आउट</string>
+    <string name="settings_preview">पूर्वावलोकन</string>
+
+    <string name="splash_tagline">द्वंद्व के पीछे लोगों को समझें।</string>
+
+    <string name="onboarding_hero_title">शांतिपूर्ण, बुद्धिमान\nद्वंद्व समाधान</string>
+    <string name="onboarding_hero_desc">मेडिअरा AI प्रत्येक प्रतिभागी के साथ निजी 1-ऑन-1 सत्र आयोजित करता है, निजी संदेशों को उजागर किए बिना सामान्य आधार पहचानता है, और 3 व्यावहारिक संकल्प समझौते तैयार करता है।</string>
+    <string name="onboarding_pillar_private_title">निजी और गोपनीय</string>
+    <string name="onboarding_pillar_private_desc">कोई भी पक्ष कच्ची प्रतिलिपियाँ नहीं देखता; केवल संयुक्त अंतर्दृष्टि संश्लेषित होती है।</string>
+    <string name="onboarding_pillar_impartial_title">पूर्णतः निष्पक्ष</string>
+    <string name="onboarding_pillar_impartial_desc">AI कभी पक्ष नहीं लेता या दोष नहीं देता; या तटस्थ रूप से मतभेदों को जोड़ता है।</string>
+    <string name="onboarding_pillar_accord_title">स्वीकृत समझौते और PDF</string>
+    <string name="onboarding_pillar_accord_desc">कार्यान्वयन योग्य समझौते, डाउनलोड करने योग्य PDF और माइलस्टोन फॉलो-अप तैयार करता है।</string>
+    <string name="onboarding_get_started">शुरू करें</string>
+    <string name="onboarding_invite_code">मेरे पास निमंत्रण कोड है</string>
+    <string name="onboarding_already_account">पहले से खाता है? साइन इन करें</string>
+</resources>

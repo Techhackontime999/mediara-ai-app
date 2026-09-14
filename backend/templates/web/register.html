@@ -1,0 +1,109 @@
+{% extends "web/base.html" %}
+{% block title %}Create account — Mediara AI{% endblock %}
+{% block page_name %}register{% endblock %}
+{% block api_base %}/api/auth/{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <aside class="auth-brand">
+    <a class="brand no-underline" href="/" style="color:#fff;">
+      <span class="brand-mark">M</span>
+      Mediara&nbsp;AI
+    </a>
+    <div>
+      <p class="rule tiny" style="text-transform:uppercase;letter-spacing:0.14em;color:var(--accent-soft);font-weight:600;margin:0 0 12px;">Private by design</p>
+      <h1>Bring the conflict.<br>Leave with an accord.</h1>
+      <p class="lead" style="margin:16px 0 0;max-width:360px;">
+        Create your identity to start or join a mediation session.
+      </p>
+      <div class="pill-row" style="margin-top:24px;">
+        <span class="pill">Private caucus</span>
+        <span class="pill">AI analysis</span>
+        <span class="pill">Signed accords</span>
+      </div>
+    </div>
+  </aside>
+  <main class="auth-form">
+    <div class="auth-panel">
+      <h2 style="margin-bottom:6px;">Create your account</h2>
+      <p class="muted small" style="margin:0 0 28px;">One identity for your mediation sessions.</p>
+
+      <form id="registerForm" novalidate>
+        <div class="form-error" id="formError" style="display:none;"></div>
+
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" name="name" type="text" autocomplete="name" required placeholder="Jordan Lee">
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters">
+        </div>
+
+        <button class="btn btn-primary btn-lg btn-block" type="submit">
+          Create account
+        </button>
+      </form>
+
+      <p class="small muted" style="margin:22px 0 0;text-align:center;">
+        Already registered? <a href="/login/">Sign in</a>
+      </p>
+    </div>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const M = window.Mediara;
+  const form = document.getElementById("registerForm");
+  const errBox = document.getElementById("formError");
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.style.display = "none";
+    const payload = {
+      name: document.getElementById("name").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value,
+    };
+    const btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    btn.textContent = "Creating account…";
+    try {
+      const data = await M.apiJson("register/", { method: "POST", body: payload });
+      if (data.access) {
+        M.storage.setTokens({ access: data.access, refresh: data.refresh });
+        M.storage.setUser({
+          name: data.user?.name || payload.name,
+          email: data.user?.email || payload.email,
+          isStaff: data.user?.isStaff || false,
+          userId: data.user?.id,
+        });
+        location.href = "/dashboard/";
+        return;
+      }
+      errBox.style.display = "block";
+      errBox.textContent = data.detail || "Registration failed.";
+      btn.disabled = false;
+      btn.textContent = "Create account";
+    } catch (err) {
+      errBox.style.display = "block";
+      if (err.payload && typeof err.payload === "object") {
+        const first = Object.values(err.payload)[0];
+        errBox.textContent = Array.isArray(first) ? first.join(" ") : String(first);
+      } else {
+        errBox.textContent = err.message;
+      }
+      btn.disabled = false;
+      btn.textContent = "Create account";
+    }
+  });
+})();
+</script>
+{% endblock %}

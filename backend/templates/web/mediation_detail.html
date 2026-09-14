@@ -1,0 +1,413 @@
+{% extends "web/base.html" %}
+{% block title %}Mediation — Mediara AI{% endblock %}
+{% block page_name %}mediation{% endblock %}
+{% block api_base %}/api/{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="container">
+    <a class="brand no-underline" href="/dashboard/">
+      <span class="brand-mark">M</span>
+      Mediara&nbsp;AI
+    </a>
+    <nav class="nav-actions">
+      <a class="btn btn-ghost btn-sm" href="/dashboard/">All cases</a>
+      <a class="avatar no-underline" id="avatarLink" href="/account/" title="Account">ME</a>
+    </nav>
+  </div>
+</header>
+
+<main class="section tight" id="main">
+  <div class="container medium">
+    <div id="loading">
+      <div class="card pad"><div class="skeleton" style="height:20px;width:55%;"></div><div style="height:12px;"></div><div class="skeleton" style="height:12px;width:80%;"></div></div>
+    </div>
+    <div id="errorState" style="display:none;"></div>
+    <div id="content" style="display:none;"></div>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const M = window.Mediara;
+  const MEDIATION_ID = {{ mediation_id|default:0 }};
+  if (!M.requireAuth("/mediation/" + MEDIATION_ID + "/")) return;
+
+  const user = M.storage.getUser();
+  if (user?.name) {
+    document.getElementById("avatarLink").textContent = user.name.slice(0, 2).toUpperCase();
+  }
+
+  const loading = document.getElementById("loading");
+  const errorState = document.getElementById("errorState");
+  const content = document.getElementById("content");
+
+  /* ---------- analysis ---------- */
+
+  function analysisSection(analysis) {
+    if (!analysis) return "";
+    const groups = [
+      ["Common goals", analysis.commonGoals],
+      ["Root causes", analysis.rootCauses],
+      ["Misunderstandings", analysis.misunderstandings],
+      ["Emotional factors", analysis.emotionalFactors],
+      ["Expectation gaps", analysis.expectationGaps],
+      ["Potential compromises", analysis.potentialCompromises],
+    ];
+    return `
+      <section>
+        <h2>Conflict analysis</h2>
+        <p class="muted small" style="margin:4px 0 20px;">Compatibility score ${analysis.compatibilityScore ?? "—"} — analyzed ${M.timeAgo(analysis.analyzedAt)}.</p>
+        <div class="card pad">
+          <p style="margin:0 0 16px;">${M.escapeHtml(analysis.commonGroundSummary || "")}</p>
+          <div class="grid-cards">
+            ${groups.map(([label, items]) => `
+              <div>
+                <h4 style="margin-bottom:6px;">${label}</h4>
+                <ul style="margin:0;padding-left:18px;">
+                  ${(items || []).map((i) => `<li class="small" style="margin:3px 0;color:var(--ink-soft);">${M.escapeHtml(i)}</li>`).join("")}
+                </ul>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </section>`;
+  }
+
+  /* ---------- proposals ---------- */
+
+  function votesSummary(proposal) {
+    const votes = proposal.votes || {};
+    const entries = Object.entries(votes);
+    if (!entries.length) return `<span class="muted">No votes yet</span>`;
+    return `<span class="tiny">${entries.map(([, d]) => `<span class="badge badge-${d === "ACCEPT" ? "teal" : d === "REJECT" ? "rose" : "amber"}" style="margin-right:6px;">${d.replace(/_/g, " ")}</span>`).join("")}</span>`;
+  }
+
+  function proposalsSection(proposals, activeProposalId, approvedIds) {
+    if (!proposals || !proposals.length) return "";
+    return `
+      <section>
+        <h2>Proposals</h2>
+        <p class="muted small" style="margin:4px 0 20px;">${proposals.length} option${proposals.length === 1 ? "" : "s"} on the table. Vote to signal agreement or request changes.</p>
+        ${proposals.map((p) => `
+          <div class="proposal" style="margin-bottom:16px;">
+            <div class="row between wrap">
+              <h3 style="font-size:16px;">${M.escapeHtml(p.title)}</h3>
+              <div class="row">${M.statusBadge(p.isApproved ? "AGREEMENT_READY" : "INVITED")}${(activeProposalId === p.id) ? '<span class="badge badge-indigo">active</span>' : ""}</div>
+            </div>
+            <p class="small" style="color:var(--ink-soft);margin:10px 0;">${M.escapeHtml(p.description)}</p>
+            <div class="row wrap" style="margin:8px 0;">
+              <span class="tiny" style="color:var(--ink-mute);font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Grounding</span>
+              ${(p.groundedIn || []).map((g) => `<span class="badge badge-neutral">${M.escapeHtml(String(g.title || g))}</span>`).join(" ")}
+            </div>
+            <div class="row between wrap" style="margin-top:12px;">
+              <div>${votesSummary(p)}</div>
+              <div class="row">
+                <button class="btn btn-sm btn-secondary" data-refine="${p.id}">Request changes</button>
+                <button class="btn btn-sm btn-primary" data-approve="${p.id}">Accept</button>
+              </div>
+            </div>
+            ${(approvedIds || []).includes(p.id) ? `<div class="alert alert-success" style="margin-top:14px;">All parties have accepted this proposal.</div>` : ""}
+            ${ (p.feedback && Object.keys(p.feedback).length) ? `<div class="small muted" style="margin-top:10px;">Feedback: ${Object.values(p.feedback).map(M.escapeHtml).join(" · ")}</div>` : "" }
+          </div>
+        `).join("")}
+      </section>`;
+  }
+
+  /* ---------- agreement ---------- */
+
+  function agreementSection(agreement) {
+    if (!agreement) return "";
+    const signed = agreement.signatures || {};
+    const signerNames = Object.values(signed).map((s) => s.name || s).join(", ") || "all parties";
+    return `
+      <section>
+        <h2>Signed accord</h2>
+        <div class="card pad">
+          ${agreement.isFullySigned ? '<div class="alert alert-success" style="margin-bottom:16px;">Fully signed by ' + M.escapeHtml(signerNames) + ".</div>" : '<div class="alert alert-info" style="margin-bottom:16px;">Drafted — pending signatures.</div>'}
+          <p class="small"><strong>${M.escapeHtml(agreement.resolutionTitle || "Accord")}</strong></p>
+          <p class="small muted" style="margin:8px 0;">${M.escapeHtml(agreement.preamble || "")}</p>
+          <ol style="margin:12px 0;padding-left:20px;">
+            ${(agreement.agreedTerms || []).map((t) => `<li class="small" style="margin:4px 0;color:var(--ink-soft);">${M.escapeHtml(t)}</li>`).join("")}
+          </ol>
+          <div class="row" style="margin-top:16px;">
+            <a class="btn btn-sm btn-secondary" href="/api/mediations/${agreement.mediationId}/agreement/pdf/" download>Download PDF</a>
+          </div>
+        </div>
+      </section>`;
+  }
+
+  /* ---------- conversation (private caucus) ---------- */
+
+  function conversationSection(conversation) {
+    const msgs = conversation?.messages || [];
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <section>
+        <h2>Private caucus</h2>
+        <p class="muted small" style="margin:4px 0 20px;">Zero-disclosure session with the AI mediator. Only you see this.</p>
+        <div class="card pad">
+          <div data-msgs></div>
+          <form data-send style="margin-top:16px;">
+            <div class="field" style="margin-bottom:10px;">
+              <textarea data-input required placeholder="Share your private perspective…"></textarea>
+            </div>
+            <div class="row between">
+              <button class="btn btn-primary btn-sm" type="submit">Send privately</button>
+              <button class="btn btn-secondary btn-sm" type="button" data-complete>Complete session</button>
+            </div>
+          </form>
+        </div>
+      </section>`;
+    renderMsgs(msgs, container.querySelector("[data-msgs]"));
+
+    async function refresh() {
+      try {
+        const conv = await M.apiJson("conversations/" + conversation.id + "/");
+        renderMsgs(conv.messages || [], container.querySelector("[data-msgs]"));
+      } catch { /* keep last view */ }
+    }
+    function renderMsgs(list, box) {
+      if (!list.length) {
+        box.innerHTML = '<p class="small muted" style="margin:0;">No private messages yet. Your perspective stays between you and the mediator.</p>';
+        return;
+      }
+      box.innerHTML = list.map((m) => `
+        <div class="row" style="align-items:flex-start;gap:10px;padding:6px 0;">
+          <span class="mono tiny" style="color:var(--ink-mute);width:64px;flex:none;">${m.sender.toLowerCase() === "user" ? "you" : m.sender.toLowerCase()}</span>
+          <div style="flex:1;">
+            <div class="small" style="white-space:pre-wrap;">${M.escapeHtml(m.content)}</div>
+            <div class="tiny muted" style="margin-top:2px;">${M.timeAgo(m.timestamp)}${m.isRiskFlagged ? ' · <span style="color:var(--rose);">safety flag</span>' : ""}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    container.querySelector("[data-send]").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = container.querySelector("[data-input]");
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = "";
+      const btn = container.querySelector("[type=submit]");
+      btn.disabled = true;
+      try {
+        await M.apiJson("conversations/" + conversation.id + "/message/", { method: "POST", body: { message: text } });
+        M.toast("Sent privately to the mediator.", "success");
+        await refresh();
+      } catch (err) {
+        M.toast(err.message, "error");
+      }
+      btn.disabled = false;
+    });
+    container.querySelector("[data-complete]").addEventListener("click", async () => {
+      if (!confirm("Mark your private session complete? You can still send follow-up messages, but the mediation can proceed to synthesis.")) return;
+      try {
+        await M.apiJson("conversations/" + conversation.id + "/complete/", { method: "POST" });
+        M.toast("Session completed.", "success");
+        load();
+      } catch (err) { M.toast(err.message, "error"); }
+    });
+    return container;
+  }
+
+  /* ---------- main load ---------- */
+
+  async function load() {
+    let m;
+    try {
+      m = await M.apiJson("mediations/" + MEDIATION_ID + "/");
+    } catch (err) {
+      loading.style.display = "none";
+      errorState.style.display = "block";
+      errorState.innerHTML = `<div class="alert alert-error">${M.escapeHtml(err.message)}</div>`;
+      return;
+    }
+    loading.style.display = "none";
+    content.style.display = "block";
+
+    const parts = [];
+    let myConv = null;
+    try {
+      myConv = await M.apiJson("mediations/" + MEDIATION_ID + "/my-conversation/");
+    } catch { /* not a participant */ }
+
+    const alreadyApproved = (m.proposals || []).filter((p) => p.isApproved).map((p) => p.id);
+
+    const canAnalyze = ["CREATED", "INVITED", "PRIVATE_COLLECTION"].includes(m.status);
+
+    parts.push(`
+      <div class="row between wrap" style="margin-bottom:8px;">
+        <div>
+          <div class="row" style="gap:10px;margin-bottom:10px;">
+            <span class="badge badge-neutral">${M.escapeHtml(m.category || "General")}</span>
+            ${M.statusBadge(m.status)}
+          </div>
+          <h1 style="font-size:26px;margin-bottom:6px;">${M.escapeHtml(m.title)}</h1>
+          <p class="muted small" style="margin:0;">Created ${M.timeAgo(m.createdAt)} · ${M.escapeHtml(m.description || "")}</p>
+        </div>
+        <div class="card pad" style="text-align:center;">
+          <p class="tiny" style="text-transform:uppercase;letter-spacing:.12em;color:var(--ink-mute);font-weight:600;margin:0 0 6px;">Invite code</p>
+          <div class="row" style="justify-content:center;">
+            <span class="mono" style="font-size:20px;font-weight:700;letter-spacing:.08em;color:var(--accent);">${M.escapeHtml(m.inviteCode || "—")}</span>
+            ${m.inviteCode ? `<button class="btn btn-sm btn-secondary" data-copy="${M.escapeHtml(m.inviteCode)}">Copy</button>` : ""}
+          </div>
+          <p class="tiny muted" style="margin:8px 0 0;">${m.participants?.length || 1} participant${m.participants?.length === 1 ? "" : "s"}</p>
+        </div>
+      </div>
+    `);
+
+    if (m.safetyAlert) {
+      parts.push(`
+        <div class="alert alert-error" style="margin-bottom:20px;">
+          <span style="font-weight:600;">Safety hold.</span> This mediation is paused. Please contact professional support.
+        </div>`);
+    }
+
+    if (myConv) {
+      const convWrap = document.createElement("div");
+      convWrap.appendChild(conversationSection(myConv));
+      content.appendChild(convWrap);
+    }
+
+    if (m.participants?.length) {
+      parts.push(`
+        <section>
+          <h2>Participants</h2>
+          <div class="card" style="margin-top:12px;">
+            ${m.participants.map((p) => `
+              <div class="list-item">
+                <div>
+                  <h3>${M.escapeHtml(p.name || p.email || "Participant")}</h3>
+                  <p>${M.escapeHtml(p.role || "")}${p.userId ? "" : " · not yet joined"}</p>
+                </div>
+                <div class="row">${M.statusBadge(p.status === "JOINED" ? "RESOLVED" : p.status === "INVITED" ? "INVITED" : "CREATED")}</div>
+              </div>
+            `).join("")}
+          </div>
+        </section>`);
+    }
+
+    if (!m.analysis && canAnalyze) {
+      parts.push(`
+        <section>
+          <h2>Analysis</h2>
+          <div class="card pad center-col" style="margin-top:12px;padding:36px;">
+            <div class="empty-icon" style="width:56px;height:56px;border-radius:16px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:22px;font-weight:700;">M</div>
+            <h3 style="margin:16px 0 6px;">Run the AI analysis</h3>
+            <p class="small muted" style="max-width:340px;margin:0 0 18px;">Once every participant has shared their private perspective, generate the conflict analysis and proposal options.</p>
+            <button class="btn btn-primary" data-analyze>Generate analysis & proposals</button>
+          </div>
+        </section>`);
+    }
+
+    parts.push(analysisSection(m.analysis));
+    parts.push(proposalsSection(m.proposals, m.activeProposalId, alreadyApproved));
+    parts.push(agreementSection(m.agreement));
+
+    if (!m.agreement && alreadyApproved.length) {
+      parts.push(`
+        <section>
+          <h2>Next step</h2>
+          <div class="card pad row between wrap">
+            <div>
+              <p class="small" style="margin:0 0 4px;"><strong>Generate your signed accord</strong></p>
+              <p class="small muted" style="margin:0;">Every party accepted a proposal. Generate the mutual accord to resolve the mediation.</p>
+            </div>
+            <button class="btn btn-primary" data-finalize>Generate accord</button>
+          </div>
+        </section>`);
+    }
+
+    content.innerHTML = parts.join("");
+
+    content.querySelectorAll("[data-copy]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(btn.dataset.copy); M.toast("Invite code copied.", "success"); }
+        catch { M.toast(btn.dataset.copy); }
+      });
+    });
+
+    content.querySelectorAll("[data-analyze]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Analyzing — this may take a moment…";
+        try {
+          await M.apiJson("mediations/" + MEDIATION_ID + "/analyze/", { method: "POST" });
+          M.toast("Analysis and proposals are ready.", "success");
+          load();
+        } catch (err) {
+          M.toast(err.message, "error");
+          btn.disabled = false;
+          btn.textContent = "Generate analysis & proposals";
+        }
+      });
+    });
+
+    content.querySelectorAll("[data-approve]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const res = await M.apiJson("resolutions/" + btn.dataset.approve + "/vote/", {
+            method: "POST",
+            body: { decision: "ACCEPT" },
+          });
+          if (res.approvedByAll) {
+            M.toast("Accepted by all parties. Generate the accord to lock it in.", "success");
+          } else {
+            M.toast("Vote recorded.", "success");
+          }
+          load();
+        } catch (err) { M.toast(err.message, "error"); }
+      });
+    });
+
+    content.querySelectorAll("[data-refine]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const resId = btn.dataset.refine;
+        const form = document.createElement("form");
+        form.className = "stack";
+        form.innerHTML = `
+          <div class="field">
+            <label for="refineFeedback">What needs to change?</label>
+            <textarea id="refineFeedback" required placeholder="Describe the adjustments you need…"></textarea>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Refine proposal</button>`;
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const fb = document.getElementById("refineFeedback").value.trim();
+          const btn2 = form.querySelector("button[type=submit]");
+          btn2.disabled = true;
+          btn2.textContent = "Refining…";
+          try {
+            await M.apiJson("resolutions/" + resId + "/refine/", { method: "POST", body: { feedback: fb } });
+            M.toast("Proposal refined. Polish it again or accept.", "success");
+            close();
+            load();
+          } catch (err) { M.toast(err.message, "error"); btn2.disabled = false; btn2.textContent = "Refine proposal"; }
+        });
+        let close;
+        close = M.openModal({ title: "Refine proposal", body: form });
+      });
+    });
+
+    content.querySelectorAll("[data-finalize]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Finalizing…";
+        try {
+          const agreement = await M.apiJson("mediations/" + MEDIATION_ID + "/finalize/", { method: "POST", body: {} });
+          M.toast("Accord finalized — mediation concluded.", "success");
+          location.reload();
+        } catch (err) {
+          M.toast(err.message, "error");
+          btn.disabled = false;
+          btn.textContent = "Generate accord";
+        }
+      });
+    });
+  }
+
+  load();
+})();
+</script>
+{% endblock %}

@@ -7,6 +7,12 @@ plugins {
   alias(libs.plugins.roborazzi)
 }
 
+// Release identity — single source of truth for the version + artifact naming.
+val mediaraVersionMajor = 1
+val mediaraVersionMinor = 0
+val mediaraVersionPatch = 0
+val mediaraVersionName = "$mediaraVersionMajor.$mediaraVersionMinor.$mediaraVersionPatch"
+
 android {
   namespace = "com.mediara.app"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -16,7 +22,7 @@ android {
     minSdk = 24
     targetSdk = 36
     versionCode = 1
-    versionName = "1.0"
+    versionName = mediaraVersionName
 
     // Base URL of the Mediara backend. Default is the production HTTPS placeholder;
     // override for local dev with the API_BASE_URL environment variable, e.g.
@@ -92,6 +98,7 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.datastore.preferences)
+  implementation(libs.androidx.security.crypto)
   coreLibraryDesugaring(libs.desugar.jdk.libs)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -126,4 +133,9 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+// Professional artifact naming: <AppName>-<versionName>-<buildType>.apk
+base {
+  archivesName.set("MediaraAI-$mediaraVersionName")
 }

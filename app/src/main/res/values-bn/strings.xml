@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">মেডিয়ারা AI</string>
+
+    <string name="loading">লোড হচ্ছে&#8230;</string>
+    <string name="error_generic">কিছু ভুল হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="action_continue">চালিয়ে যান</string>
+    <string name="action_submit">জমা দিন</string>
+    <string name="action_back">পেছনে</string>
+    <string name="action_resend">কোড পুনরায় পাঠান</string>
+    <string name="action_ok">ঠিক আছে</string>
+
+    <string name="field_email">ইমেল ঠিকানা</string>
+    <string name="field_email_hint">you@example.com</string>
+    <string name="field_password">পাসওয়ার্ড</string>
+    <string name="field_password_hint">আপনার পাসওয়ার্ড লিখুন</string>
+    <string name="field_confirm_password">পাসওয়ার্ড নিশ্চিত করুন</string>
+    <string name="field_full_name">পুরো নাম</string>
+    <string name="field_code">যাচাইকরণ কোড</string>
+    <string name="field_code_hint">৬ সংখ্যার কোড লিখুন</string>
+    <string name="field_new_password">নতুন পাসওয়ার্ড</string>
+
+    <string name="error_fill_all">অনুগ্রহ করে সব ঘর পূরণ করুন।</string>
+    <string name="error_email_invalid">অনুগ্রহ করে একটি বৈধ ইমেল ঠিকানা লিখুন।</string>
+    <string name="error_password_length">পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।</string>
+    <string name="error_password_upper">পাসওয়ার্ডে একটি বড় হাতের অক্ষর থাকতে হবে।</string>
+    <string name="error_password_lower">পাসওয়ার্ডে একটি ছোট হাতের অক্ষর থাকতে হবে।</string>
+    <string name="error_password_digit">পাসওয়ার্ডে কমপক্ষে একটি সংখ্যা থাকতে হবে।</string>
+    <string name="error_password_mismatch">পাসওয়ার্ড মিলছে না।</string>
+    <string name="error_network">সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করুন।</string>
+
+    <string name="login_title">স্বাগতম</string>
+    <string name="login_subtitle">আপনার গোপনীয় মধ্যস্থতা সেশনে সাইন ইন করুন</string>
+    <string name="login_sign_in">সাইন ইন</string>
+    <string name="login_forgot_password">পাসওয়ার্ড ভুলে গেছেন?</string>
+    <string name="login_no_account">অ্যাকাউন্ট নেই?</string>
+    <string name="login_sign_up">সাইন আপ</string>
+    <string name="login_verification_required">অনুগ্রহ করে প্রথমে আপনার ইমেল যাচাই করুন।</string>
+
+    <string name="signup_title">অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="signup_subtitle">মেডিয়ারা AI মধ্যস্থতায় যোগ দিন</string>
+    <string name="signup_create">অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="signup_have_account">ইতিমধ্যে অ্যাকাউন্ট আছে?</string>
+    <string name="signup_terms">চালিয়ে যেয়ে আপনি আমাদের শর্তাবলী ও গোপনীয়তা নীতিতে সম্মত হচ্ছেন।</string>
+
+    <string name="forgot_title">পাসওয়ার্ড রিসেট করুন</string>
+    <string name="forgot_subtitle">আপনি সাইন আপে যে ইমেল ব্যবহার করেছেন তা লিখুন। আমরা আপনাকে ৬ সংখ্যার কোড পাঠাবো।</string>
+    <string name="forgot_send_code">রিসেট কোড পাঠান</string>
+    <string name="forgot_code_sent">সেই অ্যাকাউন্ট থাকলে, রিসেট কোড পাঠানো হয়েছে।</string>
+    <string name="forgot_back_to_login">সাইন ইনে ফিরে যান</string>
+
+    <string name="reset_title">নতুন পাসওয়ার্ড সেট করুন</string>
+    <string name="reset_subtitle">আপনার ইমেলে পাঠানো কোড এবং একটি নতুন পাসওয়ার্ড লিখুন।</string>
+    <string name="reset_submit">পাসওয়ার্ড রিসেট করুন</string>
+    <string name="reset_success">আপনার পাসওয়ার্ড রিসেট হয়েছে। সাইন ইন করুন।</string>
+
+    <string name="verify_title">ইমেল যাচাই করুন</string>
+    <string name="verify_subtitle">আপনার ইমেলে ৬ সংখ্যার যাচাইকরণ কোড পাঠানো হয়েছে। নিচে লিখুন।</string>
+    <string name="verify_submit">ইমেল যাচাই করুন</string>
+    <string name="verify_resend">যাচাইকরণ কোড পুনরায় পাঠান</string>
+    <string name="verify_resend_success">একটি নতুন কোড আপনার ইমেলে পাঠানো হয়েছে।</string>
+    <string name="verify_email_updated">ইমেল যাচাই হয়েছে। এখন সাইন ইন করুন।</string>
+    <string name="verify_dev_code_sent">Dev কোড: %s</string>
+
+    <string name="nav_home">হোম</string>
+    <string name="nav_profile">প্রোফাইল</string>
+    <string name="nav_settings">সেটিংস</string>
+
+    <string name="settings_title">সেটিংস</string>
+    <string name="settings_appearance">চেহারা</string>
+    <string name="settings_accent">রং</string>
+    <string name="settings_font">ফন্ট শৈলী</string>
+    <string name="settings_font_default">ডিফল্ট</string>
+    <string name="settings_font_serif">সেরিফ</string>
+    <string name="settings_font_mono">মোনোস্পেস</string>
+    <string name="settings_dark_mode">ডার্ক মোড</string>
+    <string name="settings_dark_system">সিস্টেম অনুসারে</string>
+    <string name="settings_dark_light">লাইট</string>
+    <string name="settings_dark_dark">ডার্ক</string>
+    <string name="settings_text_size">টেক্সট আকার</string>
+    <string name="settings_text_small">ছোট</string>
+    <string name="settings_text_default">ডিফল্ট</string>
+    <string name="settings_text_large">বড়</string>
+    <string name="settings_language">ভাষা</string>
+    <string name="settings_general">সাধারণ</string>
+    <string name="settings_about">অ্যাপ সম্পর্কে</string>
+    <string name="settings_version">সংস্করণ ১.০.০</string>
+    <string name="settings_privacy">গোপনীয়তা ও নিরপেক্ষতা</string>
+    <string name="settings_privacy_desc">মেডিয়ারা AI শূন্য-প্রকাশ গোপনীয় ট্রান্সক্রিপ্টে কাজ করে। AI মধ্যস্থতাকারী কোনো আইনি বা মানসিক স্বাস্থ্য পরামর্শ দেয় না।</string>
+    <string name="settings_logout">সাইন আউট</string>
+    <string name="settings_preview">পূর্বরূপ</string>
+
+    <string name="splash_tagline">দ্বন্দ্বের পেছনের মানুষদের বুঝুন।</string>
+
+    <string name="onboarding_hero_title">শান্তিপূর্ণ, বুদ্ধিমান\nদ্বন্দ্ব সমাধান</string>
+    <string name="onboarding_hero_desc">মেডিয়ারা AI প্রতিটি অংশগ্রহণকারীর সাথে ব্যক্তিগত ১-অন-১ সেশন পরিচালনা করে, ব্যক্তিগত বার্তা প্রকাশ না করেই সাধারণ ভিত্তি শনাক্ত করে এবং ৩টি বাস্তবসম্মত সমঝোতা চুক্তি তৈরি করে।</string>
+    <string name="onboarding_pillar_private_title">ব্যক্তিগত ও গোপনীয়</string>
+    <string name="onboarding_pillar_private_desc">কোনো পক্ষ অসম্পূর্ণ টেপি দেখে না; শুধুমাত্র যৌথ অন্তর্দৃষ্টি সংশ্লেষিত হয়।</string>
+    <string name="onboarding_pillar_impartial_title">সম্পূর্ণ নিরপেক্ষ</string>
+    <string name="onboarding_pillar_impartial_desc">AI কখনই পক্ষ নেয় বা দোষ দেয় না; নিরপেক্ষভাবে পার্থক্য পূরণ করে।</string>
+    <string name="onboarding_pillar_accord_title">সম্মত চুক্তি ও PDF</string>
+    <string name="onboarding_pillar_accord_desc">কার্যকর চুক্তি, ডাউনলোডযোগ্য PDF এবং মাইলস্টোন ফলো-আপ তৈরি করে।</string>
+    <string name="onboarding_get_started">শুরু করুন</string>
+    <string name="onboarding_invite_code">আমার কাছে আমন্ত্রণ কোড আছে</string>
+    <string name="onboarding_already_account">ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন করুন</string>
+</resources>
