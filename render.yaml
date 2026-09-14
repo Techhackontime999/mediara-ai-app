@@ -19,7 +19,6 @@ services:
     name: mediara-ai
     runtime: docker
     plan: free
-    runtimeDirectory: ""
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health/
     envVars:
